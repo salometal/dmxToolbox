@@ -118,58 +118,15 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
             return;
         }
 
-      // 3. CHECK NAVIGAZIONE (NEXT/LAST in SOLO)
+            // 3. CHECK NAVIGAZIONE (NEXT/LAST in SOLO)
         if ((type == "NEXT" || type == "LAST") && isSoloActive) {
-            int direction = (type == "NEXT") ? 1 : -1;
-            memset(keypad_dmx_buffer, 0, 513); // Pulisci prima di accendere i nuovi
-
-         if (lastGroupCmd.indexOf(" THRU ") != -1) {
-                // --- NUOVO: GESTIONE THRU ---
-                int tPos = lastGroupCmd.indexOf(" THRU ");
-                int startID = lastGroupCmd.substring(0, tPos).toInt();
-                int endID = lastGroupCmd.substring(tPos + 6).toInt();
-                
-                int nStart = constrain(startID + (direction * spacing), 1, 512);
-                int nEnd = constrain(endID + (direction * spacing), 1, 512);
-                
-                String newCmd = String(nStart) + " THRU " + String(nEnd);
-
-                Serial.println("spacing: " + String(spacing));
-                Serial.println("offset: " + offsetStr);
-                
-                parseAndExecuteGroups(newCmd, soloLevel, offsetStr, spacing);
-                Serial.printf("[SOLO] THRU Nav: %s\n", newCmd.c_str());
-            } 
-            else if (lastGroupCmd.indexOf("+") != -1) {
-                // --- TUA LOGICA ORIGINALE PER IL + (CORRETTA) ---
-                String newCmd = "";
-                int startPos = 0;
-                int plusPos = lastGroupCmd.indexOf("+");
-                while (true) {
-                    String cur = (plusPos != -1) ? lastGroupCmd.substring(startPos, plusPos) : lastGroupCmd.substring(startPos);
-                    cur.trim();
-                    int p = cur.toInt();
-                    if (p > 0) {
-                        int nextP = constrain(p + (direction * spacing), 1, 512);
-                        newCmd += String(nextP) + (plusPos != -1 ? "+" : "");
-                    }
-                    if (plusPos == -1) break;
-                    startPos = plusPos + 1;
-                    plusPos = lastGroupCmd.indexOf("+", startPos);
-                }
-                parseAndExecuteGroups(newCmd, soloLevel, offsetStr, spacing);
-                Serial.printf("[SOLO] Group Nav: %s\n", newCmd.c_str());
-            } else {
-                // --- NAVIGAZIONE SINGOLA ---
-                currentPivot = constrain(currentPivot + (direction * spacing), 1, 512);
-                lastGroupCmd = String(currentPivot);
-                executeFixture(currentPivot, soloLevel, offsetStr);
-                Serial.printf("[SOLO] Navigazione: %d\n", currentPivot);
+            if (cmd != "") {
+                memset(keypad_dmx_buffer, 0, 513);
+                parseAndExecuteGroups(cmd, soloLevel, offsetStr, spacing);
             }
-            
             xSemaphoreGive(dmx_mutex);
             mutex_owner = 0;
-            return; // Esci subito dopo aver navigato!
+            return;
         }
         // 4. PARSING STRINGA COMANDO
         if (cmd != "") {
