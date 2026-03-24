@@ -141,23 +141,23 @@ bool readArtDmx(uint8_t* dmxBuffer) {
 
     // Usiamo un buffer locale temporaneo per il test, 
     // così evitiamo conflitti con memorie statiche o globali.
-    uint8_t tempBuffer[640]; 
-    memset(tempBuffer, 0, 640);
+        static uint8_t tempBuffer[530];
+        memset(tempBuffer, 0, 530);
 
     // STEP 1: Lettura fisica dal socket
-    int readLen = udp.read(tempBuffer, 640);
+    int readLen = udp.read(tempBuffer, 530);
     
     if (readLen <= 0) return false;
 
     // STEP 2: Identificazione pacchetto
     Serial.printf("[READ] Ricevuti %d byte. Header: %c%c%c%c\n", 
                   readLen, tempBuffer[0], tempBuffer[1], tempBuffer[2], tempBuffer[3]);
-    Serial.flush(); 
+   
 
     if (readLen >= 12 && memcmp(tempBuffer, "Art-Net", 7) == 0) {
         uint16_t opCode = (tempBuffer[9] << 8) | tempBuffer[8];
         Serial.printf("[READ] OpCode rilevato: 0x%04X\n", opCode);
-        Serial.flush();
+       
 
         // Se è ArtDmx (0x5000)
         if (opCode == 0x5000) {
@@ -171,31 +171,24 @@ bool readArtDmx(uint8_t* dmxBuffer) {
 
             Serial.printf("[READ] Univ: %d (Target: %d) | DataLen: %d\n", 
                           incomingUniv, settings.universe, dataLen);
-            Serial.flush();
 
             if (incomingUniv == settings.universe) {
-                // Protezione contro buffer overflow
                 if (dataLen > 512) dataLen = 512;
                 
-                // STEP 3: Scrittura nel buffer DMX
-                // Usiamo dmxBuffer+1 per saltare lo Start Code 0
-                Serial.println("[READ] Inizio memcpy su dmxBuffer...");
-                Serial.flush();
+                // Fix A: valida dataLen contro byte realmente ricevuti
+                uint16_t available = (readLen > 18) ? (uint16_t)(readLen - 18) : 0;
+                if (dataLen > available) dataLen = available;
+                if (dataLen == 0) return false;
                 
                 memcpy(dmxBuffer + 1, tempBuffer + 18, dataLen);
-                dmxBuffer[0] = 0; // Start Code standard
-
-                Serial.println("[READ] Memcpy completata con successo.");
-                Serial.flush();
+                dmxBuffer[0] = 0;
                 return true;
             }
         } else {
             Serial.printf("[READ] Pacchetto Art-Net ignorato (OpCode non 0x5000)\n");
-            Serial.flush();
         }
     } else {
         Serial.println("[READ] Pacchetto non Art-Net o troppo corto.");
-        Serial.flush();
     }
 
     return false;
