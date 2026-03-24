@@ -49,6 +49,8 @@ extern uint8_t *main_dmx_buffer;
 extern volatile SemaphoreHandle_t dmx_mutex;
 extern bool dmxDriverInstalled; 
 extern dmx_port_t dmxPort;
+extern bool artnetConfirmed;
+extern uint32_t lastPacketTime;
 
 // AGGIUNGI QUESTI: Servono al loop() per gestire i task
 extern TaskHandle_t dmxTaskHandle;

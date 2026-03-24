@@ -95,8 +95,8 @@ function updateStatus() {
                     const modeBadge = document.getElementById("mode-badge");
                     const modes = ["DMX -> ARTNET", "ARTNET -> DMX", "STANDALONE"];
                
-               
-                            if (keypadActive) {
+                  const artnetConfirmed = p[13] === "1";
+                 if (keypadActive) {
                     // PRIORITÀ ASSOLUTA AL KEYPAD
                     modeBadge.innerText = "KEYPAD";
                     modeBadge.style.backgroundColor = "#4b48ee"; // Usiamo l'azzurro per distinguerlo dal verde Art-Net
@@ -104,7 +104,11 @@ function updateStatus() {
                     // Stato al BOOT o FERMO
                     modeBadge.innerText = "NODO: NON ATTIVO";
                     modeBadge.style.backgroundColor = "#6c757d"; // Grigio
-                } else {
+                }  else if (mode === "1" && run === "1" && !artnetConfirmed) {
+                    modeBadge.innerText = "🔍 RICERCA SEGNALE...";
+                    modeBadge.style.backgroundColor = "#ff9800";
+                        
+                }else {
                     // Stato in ESECUZIONE NORMALE
                     modeBadge.innerText = "LIVE: " + (modes[mode] || "IDLE");
                     modeBadge.style.backgroundColor = "var(--success)"; // Verde
@@ -192,7 +196,16 @@ function updateStatus() {
                         btnDmx.classList.add("btn-danger");
                     } 
                     else if (mode === "1" && btnArtNet) {
-                        btnArtNet.innerText = "FERMA RICEZIONE";
+                        if (!artnetConfirmed) {
+                              btnArtNet.innerHTML = '<span class="spinner"></span> RICERCA SEGNALE... (Ferma)';
+                btnArtNet.classList.add("btn-searching");
+                
+                           
+                        } else {
+                            btnArtNet.innerText = "FERMA RICEZIONE";
+                            btnArtNet.classList.remove("btn-searching");
+                            btnArtNet.classList.add("btn-danger");
+                        }
                         btnArtNet.classList.add("btn-danger");
                     }
                 }
@@ -501,8 +514,10 @@ if (!confirm("Il dispositivo si riavvierà. Procedere?")) return;
     const btnText = submitBtn ? submitBtn.innerText.toUpperCase() : "";
 
     // 2. La logica di STOP è ora elementare:
-    // Se il tasto che ho premuto dice "FERMA", allora invio run=0.
-    const isStopping = btnText.includes("FERMA");
+    // Se il tasto che ho premuto dice "FERMA" o Ricerca, allora invio run=0.
+
+const isStopping = btnText.includes("FERMA") || 
+                   btnText.includes("RICERCA");
 
         
         
@@ -511,12 +526,17 @@ if (!confirm("Il dispositivo si riavvierà. Procedere?")) return;
             // Se stiamo fermando, aggiungiamo run=0 ai parametri
             params.set("run", "0");
             fetch(action + "?" + params.toString()).then(() => {
+                const btnArtNet = document.getElementById("btn-ctrl-artnetin");
+                    if (btnArtNet) {
+                        btnArtNet.classList.remove("btn-searching");
+                        btnArtNet.disabled = false;
+                    }
                 alert("Operazione fermata.");
                 updateStatus(); // Aggiorna subito i badge
             });
         } else {
             // --- CONTROLLO UNICAST (Solo per DMX IN) ---
-            if (action === "/dmxin") {
+     if (action === "/dmxin") {
                 const uniFlag = document.getElementById('unicast-flag');
                 const targetInput = document.getElementById('target-ip'); // ID del tuo campo IP unico
 
@@ -542,18 +562,20 @@ if (!confirm("Il dispositivo si riavvierà. Procedere?")) return;
         
             
 // --- LOGICA DI AVVIO ---
-            const label = (action === "/dmxin") ? "DMX IN -> Art-Net OUT" : "Art-Net IN -> DMX OUT";
-            if (!confirm("Vuoi avviare la modalità " + label + "?")) return;
+const label = (action === "/dmxin") ? "DMX IN -> Art-Net OUT" : "Art-Net IN -> DMX OUT";
+if (action === "/dmxin") {
+    if (!confirm("Vuoi avviare la modalità " + label + "?")) return;
+}
             
             params.set("run", "1");
 
             // Feedback visivo specifico per Art-Net IN (sniffer)
             const btnArtNet = document.getElementById("btn-ctrl-artnetin");
             if (action === "/artnetin" && btnArtNet) {
-                isScanning = true; // <-- BLOCCHIAMO updateStatus
+                
                 btnArtNet.innerHTML = '<span class="spinner"></span> RICERCA SEGNALE...';
                 btnArtNet.classList.add("btn-searching");
-                btnArtNet.disabled = true;
+               
             }
 
             console.log("URL finale:", action + "?" + params.toString()); 
@@ -562,17 +584,9 @@ if (!confirm("Il dispositivo si riavvierà. Procedere?")) return;
                 .then(response => response.text()) // Aspettiamo la risposta dall'ESP (OK_START / ERR_NO_DATA)
                 .then(responseText => {
                     if (action === "/artnetin") {
-                        if (responseText === "OK_START") {
-                            alert("Nodo Art-Net IN -> DMX OUT avviato!");
-                        } else if (responseText === "ERR_NO_DATA") {
-                            alert("Nessun pacchetto Art-Net rilevato. \nVerificare la sorgente e la connessione di rete.");
-                        } else {
-                            alert("Risposta ESP: " + responseText);
-                        }
-                    } else {
-                        // Per DMX IN o altre modalità
-                        alert("Nodo " + label + " avviato!");
-                    }
+                        // Nessun alert — il badge si aggiorna da solo via updateStatus
+                        console.log("[ArtNet] Risposta ESP:", responseText);
+                    } 
                 })
                 .catch(err => {
                     console.error("Errore fetch:", err);

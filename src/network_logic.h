@@ -255,22 +255,19 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
         }
     }
         
-    if (requestedRun) {
-        // --- IL POSTO DI BLOCCO ---
-        if (checkArtNetPresence()) {
+        if (requestedRun) {
+            artnetConfirmed = false; // reset conferma al nuovo avvio
+            udpActive = false;       // forza riapertura socket pulita
             settings.isRunning = true;
-            Serial.println("[WEB] Art-Net rilevato: Task AVVIATO.");
+            Serial.println("[WEB] Art-Net IN: avvio ricerca...");
             request->send(200, "text/plain", "OK_START");
         } else {
-            settings.isRunning = false; // NON facciamo partire il task killer
-            Serial.println("[WEB] Avvio NEGATO: sorgente mancante.");
-            request->send(200, "text/plain", "ERR_NO_DATA"); 
+            settings.isRunning = false;
+            artnetConfirmed = false; // reset anche allo stop
+            udpActive = false;
+            Serial.println("[WEB] Art-Net FERMATO dall'utente.");
+            request->send(200, "text/plain", "OK_STOP");
         }
-    } else {
-        settings.isRunning = false;
-        Serial.println("[WEB] Art-Net FERMATO dall'utente.");
-        request->send(200, "text/plain", "OK_STOP");
-    }
 
      // --- SALVATAGGIO CONFIGURAZIONE ---
         saveConfiguration(); // 
@@ -311,6 +308,8 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
             s += String(settings.snapNames[i]);
             if(i < 9) s += ","; 
         }
+        // ArtNet Confirmed (Indice 13)
+        s += "|" + String(artnetConfirmed ? "1" : "0");
                     
         request->send(200, "text/plain", s);
     });
@@ -671,27 +670,32 @@ void networkTask(void *pvParameters) {
             lastLog = millis();
         }
 
-        if (packetSize >= 18) {
-
-       if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
-                mutex_owner = 2;
-                readArtDmx(main_dmx_buffer);
-              xSemaphoreGive(dmx_mutex);
-                mutex_owner = 0;
+            if (packetSize >= 18) {
+                if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                    mutex_owner = 2;
+                    bool got = readArtDmx(main_dmx_buffer);
+                    if (got) {
+                        static bool firstConfirm = true;
+                        if (firstConfirm) {
+                            Serial.println("[ARTNET] Sorgente confermata!");
+                            firstConfirm = false;
+                        }
+                    }
+                    xSemaphoreGive(dmx_mutex);
+                    mutex_owner = 0;
+                }
+            } 
+            else if (udp.available() > 0) { 
+                udp.flush(); 
             }
-        } 
-        else if (udp.available() > 0) { 
-            // Invece di 1 solo byte, svuota tutto quello che c'è se non è Art-Net
-            udp.flush(); 
-        }
-       /*  else {
-           
-            
-            static uint8_t dummy[1]; 
-             udp.read(dummy, 1); 
-            
-            
-        } */
+
+            // Controllo timeout FUORI dal blocco packetSize — gira sempre
+            if (artnetConfirmed && lastPacketTime > 0) {
+                if (millis() - lastPacketTime > 5000) {
+                    artnetConfirmed = false;
+                    Serial.println("[ARTNET] Segnale perso! artnetConfirmed=false");
+                }
+            }
 
         vTaskDelay(pdMS_TO_TICKS(2)); 
     } else {

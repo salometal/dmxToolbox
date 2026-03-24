@@ -30,6 +30,9 @@ bool keypadModeEnabled = false; // keypad enable
 // Flag per gestire lo stato del socket UDP senza usare localPort()
 bool udpActive = false;
 bool wasRunningBeforeKeypad = false;
+bool artnetConfirmed = false;
+uint32_t lastPacketTime = 0;
+
 
 TaskHandle_t dmxTaskHandle = NULL;
 TaskHandle_t netTaskHandle = NULL;
@@ -213,17 +216,7 @@ if(LittleFS.begin(true)) {
     setupMDNS();
     setupWebServer(); 
 
-if (settings.mode == 1 && settings.isRunning) {
-    Serial.println("[SYSTEM] Modalità 1 rilevata. Avvio Sniffer di sicurezza...");
-    
-    // Chiamiamo lo sniffer PRIMA di far partire i Task a pieno regime
-    if (!checkArtNetPresence()) {
-        Serial.println("[SYSTEM] Nessuna sorgente Art-Net trovata al boot. Metto in PAUSA.");
-        settings.isRunning = false; // "Freno a mano" attivato
-    } else {
-        Serial.println("[SYSTEM] Sorgente confermata. Avvio ricezione.");
-    }
-}
+
     // --- AVVIO TASK (UNA VOLTA SOLA) ---
     xTaskCreatePinnedToCore(dmxTask, "DMX_Core0", 8192, NULL, 10, &dmxTaskHandle, 0);
     vTaskDelay(pdMS_TO_TICKS(100));

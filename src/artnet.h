@@ -11,6 +11,8 @@ extern uint8_t *keypad_dmx_buffer;
 extern volatile SemaphoreHandle_t dmx_mutex;
 extern volatile int mutex_owner;
 extern bool keypadModeEnabled;
+extern bool artnetConfirmed;
+extern uint32_t lastPacketTime;
 
 const uint8_t artnetId[] = "Art-Net";
 
@@ -182,7 +184,10 @@ bool readArtDmx(uint8_t* dmxBuffer) {
                 
                 memcpy(dmxBuffer + 1, tempBuffer + 18, dataLen);
                 dmxBuffer[0] = 0;
+                    artnetConfirmed = true;       
+                    lastPacketTime = millis();
                 return true;
+
             }
         } else {
             Serial.printf("[READ] Pacchetto Art-Net ignorato (OpCode non 0x5000)\n");
