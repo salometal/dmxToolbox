@@ -147,6 +147,7 @@ void saveConfiguration() {
     } else {
         Serial.println("[FS] Errore in scrittura config!");
     }
+    if (dmxDriverInstalled) dmx_driver_enable(dmxPort);
 }
 
 // --- CONFIGURAZIONE WEB SERVER (Chiamata una sola volta) ---

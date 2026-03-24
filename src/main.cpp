@@ -218,9 +218,9 @@ if(LittleFS.begin(true)) {
 
 
     // --- AVVIO TASK (UNA VOLTA SOLA) ---
-    xTaskCreatePinnedToCore(dmxTask, "DMX_Core0", 8192, NULL, 10, &dmxTaskHandle, 0);
+    xTaskCreatePinnedToCore(dmxTask, "DMX_Core0", 8192, NULL, 15, &dmxTaskHandle, 0);
     vTaskDelay(pdMS_TO_TICKS(100));
-    xTaskCreatePinnedToCore(networkTask, "Net_Core1", 8192, NULL, 5, &netTaskHandle, 1);
+    xTaskCreatePinnedToCore(networkTask, "Net_Core1", 8192, NULL, 3, &netTaskHandle, 1);
 
     Serial.println("--- SISTEMA PRONTO ---");
 }
