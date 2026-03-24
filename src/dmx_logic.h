@@ -32,6 +32,7 @@ void dmxTask(void *pvParameters) {
     uint32_t lastHeartbeat = 0;
     uint32_t lastOverrideLog = 0;
     TickType_t xLastWakeTime = xTaskGetTickCount();
+    static uint8_t lastPinMode = 255;
 
     while (true) {
         esp_task_wdt_reset();
@@ -81,6 +82,11 @@ void dmxTask(void *pvParameters) {
         // --- LOGICA DMX ---
         if (settings.mode == 0) { 
             // MODO 0: RICEZIONE (DMX -> ARTNET)
+                if (lastPinMode != 0) {
+                        dmx_set_pin(dmxPort, DMX_TX_PIN, DMX_RX_PIN, -1);
+                        lastPinMode = 0;
+                        Serial.println("[DMX] Pin RX abilitato per Modo 0");
+                    }
             dmx_packet_t packet;
             // Aspettiamo il pacchetto fisico in ingresso
             if (dmx_receive(dmxPort, &packet, pdMS_TO_TICKS(100))) {
@@ -104,9 +110,18 @@ void dmxTask(void *pvParameters) {
         }
         else {
             // MODO 1: INVIO (ART-NET o STANDALONE -> DMX)
-            
+                if (lastPinMode != 1) {
+                        dmx_set_pin(dmxPort, DMX_TX_PIN, -1, -1);
+                        lastPinMode = 1;
+                        Serial.println("[DMX] Pin RX disabilitato per Modo 1");
+                    }
+
+
             // 1. Calcolo intervallo in base agli Hz (es. 1000/40 = 25ms)
                 // Calcolo protetto: se refreshRate è 0, usa 30Hz (Standard Stabile)
+
+
+               
                  uint32_t currentHz = (settings.refreshRate > 0) ? settings.refreshRate : 30;
                 uint32_t periodMs = 1000 / currentHz; 
 
