@@ -1,0 +1,960 @@
+/* ==========================================================================
+   1. VARIABILI E RESET
+   ========================================================================== */
+:root {
+  --bg-color: #0f0f0f;
+  --surface: #1a1a1a;
+  --card-bg: #242424;
+  --primary: #007bff;
+  --accent: #00d4ff;
+  --text: #e0e0e0;
+  --text-dim: #999;
+  --success: #218838;
+  --warning: #ffc107;
+  --danger: #c82333;
+  --key-bg: #333;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text);
+  user-select: none;
+}
+
+/* ==========================================================================
+   2. LAYOUT GENERALE E NAVIGAZIONE
+   ========================================================================== */
+header {
+  background: #000;
+  padding: 15px;
+  /* Rimosso flex per gestire i livelli interni */
+  border-bottom: 2px solid var(--primary);
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1); /* Per l'effetto apertura */
+  overflow: hidden;
+}
+
+/* Nuova riga superiore che contiene Logo e Azioni */
+.header-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.logo {
+  font-weight: bold;
+  color: var(--primary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
+   PANNELLO EXTRA (DASHBOARD DI SISTEMA)
+   ========================================================================== */
+
+/* --- PANNELLO EXTRA --- */
+.header-extra-panel {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    background: #050505; 
+    margin: 0 -15px;
+    padding: 0 15px;
+}
+
+header.expanded .header-extra-panel {
+    max-height: 350px;
+    opacity: 1;
+    padding: 20px 15px;
+    border-top: 1px solid #222;
+    margin-top: 10px;
+}
+
+.extra-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 12px;
+}
+
+.extra-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px; /* Coerente con keypad-grid */
+}
+
+.extra-title {
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+/* --- BOTTONI COERENTI CON KEYPAD --- */
+.btn-extra {
+    width: 100%;
+    padding: 12px 5px;
+    background: var(--key-bg); /* #333 dal tuo root */
+    border: 1px solid #444;
+    color: white;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+/* Identificativo visivo Snapshot (stile i tuoi H2) */
+
+.btn-extra:active {
+    background: var(--primary) !important;
+    transform: scale(0.96);
+}
+
+/* Colori Specifici per Utility */
+.btn-snap { 
+    background: rgba(255, 68, 68, 0.15) !important; 
+    border: 1px solid #ff4444; 
+    color: #ff4444; 
+}
+
+.btn-list { 
+    background: rgba(0, 123, 255, 0.15) !important; 
+    border: 1px solid var(--primary); 
+    color: var(--primary); 
+}
+
+.btn-ident { 
+    background: rgba(255, 193, 7, 0.15) !important; 
+    border: 1px solid var(--warning); 
+    color: var(--warning); 
+}
+
+.btn-reboot { 
+    background: rgba(200, 35, 51, 0.15) !important; 
+    border: 1px solid var(--danger); 
+    color: var(--danger); 
+}
+
+/* --- EFFETTO ACTIVE (Colore pieno e luminoso) --- */
+.btn-snap:active { background: #ff4444 !important; color: #fff; }
+.btn-list:active { background: var(--primary) !important; color: #fff; }
+.btn-ident:active { background: var(--warning) !important; color: #000; }
+.btn-reboot:active { background: var(--danger) !important; color: #fff; }
+
+/* Feedback alla pressione: il colore riempie il tasto */
+.btn-snap:active   { background: #ff4444 !important; color: #fff; }
+.btn-list:active   { background: var(--primary) !important; color: #fff; }
+.btn-ident:active  { background: var(--warning) !important; color: #000; }
+.btn-reboot:active { background: var(--danger) !important; color: #fff; }
+
+/* --- STATS COERENTI CON INFO-ROW --- */
+.stat-line {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 6px;
+    margin-bottom: 4px;
+    border-bottom: 1px solid #1a1a1a;
+}
+
+.stat-line span {
+    color: var(--accent);
+    font-family: monospace;
+    font-weight: bold;
+}
+
+
+
+.logo {
+  font-weight: bold;
+  color: var(--primary);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.status-group {
+  display: flex;
+  gap: 8px;
+}
+
+.status-badge {
+  background: #222;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: bold;
+  border: 1px solid #333;
+}
+
+nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  background: #111;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+nav button {
+  padding: 15px 5px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 0.65rem;
+  font-weight: bold;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: 0.3s;
+  text-transform: uppercase;
+}
+
+nav button.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+  background: rgba(0, 212, 255, 0.05);
+}
+
+.main-container {
+  padding: 10px;
+  width: 95%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* ==========================================================================
+   3. COMPONENTI CARD E ANIMAZIONI
+   ========================================================================== */
+.card {
+  background: var(--card-bg);
+  padding: 20px;
+  border-radius: 12px;
+  display: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  margin-bottom: 20px;
+}
+
+.card.active {
+  display: block;
+  animation: fadeIn 0.3s;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+h2 {
+  margin-top: 0;
+  color: var(--accent);
+  font-size: 1.1rem;
+  border-left: 4px solid var(--accent);
+  padding-left: 10px;
+  margin-bottom: 20px;
+}
+
+/* ==========================================================================
+   4. FORM E INTERFACCIA INPUT
+   ========================================================================== */
+.form-group {
+  margin-bottom: 15px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 12px;
+  background: var(--surface);
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: white;
+  font-size: 1rem;
+  outline: none;
+}
+
+input:focus,
+select:focus {
+  border-color: var(--accent);
+}
+
+.full-width-select {
+  margin-bottom: 10px;
+  border: 1px solid var(--primary);
+  cursor: pointer;
+}
+
+.btn-submit {
+  width: 100%;
+  padding: 15px;
+  background: var(--primary);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+.btn-submit:active {
+  transform: scale(0.98);
+}
+
+#static-fields {
+  display: block;
+  margin-top: 10px;
+}
+
+.info-text {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 15px;
+}
+.btn-danger {
+    background-color: var(--danger) !important;
+    border-color: var(--danger) !important;
+    color: white;
+}
+
+/* ==========================================================================
+   5. VISUALIZZAZIONE DATI E STATUS
+   ========================================================================== */
+.console-out {
+  background: #000;
+  padding: 15px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+  text-align: right;
+  font-family: monospace;
+  font-size: 1.4rem;
+  color: #fff;
+  border: 1px solid #444;
+  min-height: 1.4rem;
+}
+
+.status-bar-internal {
+  text-align: center;
+  padding: 8px;
+  background: #000;
+  border-radius: 6px;
+  border: 1px solid #333;
+  margin-bottom: 15px;
+  font-size: 0.85rem;
+  font-family: monospace;
+  letter-spacing: 1px;
+}
+
+/* ==========================================================================
+   6. GRID KEYPAD E BOTTONI NUMERICI
+   ========================================================================== */
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.keypad-grid button {
+  padding: 15px 2px;
+  background: #333;
+  border: 1px solid #444;
+  color: white;
+  border-radius: 8px;
+  font-weight: bold;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.keypad-grid button:active {
+  background: var(--primary-color);
+}
+/* ==========================================================================
+   7. PULSANTI FUNZIONE E OPERAZIONI
+   ========================================================================== */
+.btn-op {
+  background: #555 !important;
+  color: var(--accent-color) !important;
+  font-weight: bold;
+}
+
+.btn-clr {
+  background: var(--danger) !important;
+  color: white !important;
+}
+
+.btn-ent {
+  background: var(--success) !important;
+  color: white !important;
+  grid-column: span 1;
+}
+
+.custom-fn-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 15px;
+}
+
+.btn-fn {
+  background: #444;
+  border: none;
+  color: white;
+  padding: 10px 5px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: bold;
+  cursor: pointer;
+}
+/* Stato di ricerca Sniffer */
+.btn-searching {
+    background-color: #ffc107 !important; /* Giallo/Arancio professionale */
+    color: #000 !important;
+    cursor: wait !important;
+    border: 1px solid #e0a800;
+    animation: pulse-search 1.5s infinite ease-in-out;
+    cursor: wait;
+}
+
+@keyframes pulse-search {
+    0% { opacity: 1; }
+    50% { opacity: 0.7; }
+    100% { opacity: 1; }
+}
+/* Lo spinner vero e proprio */
+.spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0,0,0,0.2);
+    border-radius: 50%;
+    border-top-color: #000; /* Colore del segmento che gira */
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+
+/* ==========================================================================
+   8. COMPONENTI SWITCH E SLIDER
+   ========================================================================== */
+.switch-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 46px;
+  height: 26px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #444;
+  transition: 0.4s;
+  border-radius: 34px;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: var(--success);
+}
+
+input:checked + .slider:before {
+  transform: translateX(24px);
+}
+
+.switch-label {
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: var(--accent-color);
+}
+
+/* ==========================================================================
+   9. STANDALONE E CONTROLLI AVANZATI
+   ========================================================================== */
+#pane-standalone label {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-bottom: 5px;
+}
+
+#pane-standalone input[type="text"],
+#pane-standalone input[type="number"] {
+  width: 100%;
+  padding: 8px;
+  background: #333;
+  border: 1px solid #444;
+  color: white;
+  border-radius: 6px;
+  box-sizing: border-box;
+}
+
+.check-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  margin-top: 15px;
+}
+.check-nav button {
+    padding: 15px 2px; /* Stesso padding della keypad-grid */
+    min-height: 55px;   /* Opzionale: fissa un'altezza minima per sicurezza */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.macro-nav {
+  display: grid;
+  grid-template-columns: 1fr 1fr ;
+  gap: 10px;
+  margin-top: 15px;
+}
+.macro-nav button {
+    padding: 15px 2px; /* Stesso padding della keypad-grid */
+    min-height: 55px;   /* Opzionale: fissa un'altezza minima per sicurezza */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-macro {
+    padding: 15px 2px; /* Stesso padding della keypad-grid */
+    border: 1px solid #444;
+    color: white;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+    text-transform: uppercase;
+}
+
+.Macro-list {
+    background-color: var(--primary); /* Blu */
+}
+
+.Macro-Rec {
+    background-color: #444 !important; 
+    border: 2px solid var(--danger) !important;
+    color: var(--danger) !important;
+    transition: all 0.2s ease;
+}
+
+/* Stato Attivo: Rosso pieno con testo bianco (o nero) */
+.Macro-Rec.active {
+    background-color: var(--danger) !important;
+    color: white !important;
+    box-shadow: 0 0 15px var(--danger); /* Effetto bagliore */
+}
+.btn-check {
+  background: #444;
+  border: 2px solid var(--warning);
+  color: var(--warning);
+  border-radius: 8px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.btn-check.active {
+  background: var(--warning);
+  color: black;
+}
+
+/* ==========================================================================
+   10. CONTROLLI MOTORE E LISTE NODI
+   ========================================================================== */
+.engine-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.btn-start {
+  background-color: var(--success) !important;
+}
+
+.btn-stop {
+  background-color: var(--danger) !important;
+}
+
+.icon-btn:hover {
+  color: white !important;
+  transform: scale(1.1);
+  transition: 0.2s;
+}
+
+.node-item {
+  transition: background 0.2s;
+}
+
+.node-item:hover {
+  background: #333 !important;
+  color: var(--accent);
+}
+
+.PlayButton{
+    background: #00d4ff; /* Il tuo azzurro elettrico */
+    color: #000;         /* Testo nero per contrasto pro */
+    border: none;
+    border-radius: 8px;  /* Rettangolo stondato */
+    width: 45px;         /* Più largo per il pollice */
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;      /* Non si schiaccia mai */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+/* ==========================================================================
+   11. AGGIUNTE PER DISPOSITIVO E MDNS
+   ========================================================================== */
+
+/* Divider tra le sezioni H2 */
+.section-divider {
+    border: 0;
+    height: 1px;
+    background: linear-gradient(to right, transparent, rgba(255,255,255,0.1), transparent);
+    margin: 30px 0;
+}
+
+/* Riga informativa per l'IP attuale */
+.info-row {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 12px 15px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border: 1px solid #444;
+}
+
+.info-row span {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+}
+
+.info-row strong {
+    font-family: monospace;
+    font-size: 1.1rem;
+    color: var(--accent); /* Coerente con il tuo colore accent */
+}
+
+/* Gruppo input per Hostname con suffisso .local fisso */
+.input-group-mDNS {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+}
+
+.input-group-mDNS input {
+    flex: 1;
+    min-width: 0; /* Previene lo sforo su mobile */
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+
+.addon-text {
+    background: #333; /* Coerente con il tuo key-bg o surface */
+    border: 1px solid #444;
+    border-left: none;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    white-space: nowrap;
+    border-top-right-radius: 8px;
+    border-bottom-right-radius: 8px;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    font-weight: bold;
+}
+
+/* Nota piccola sotto l'input */
+.help-text {
+    display: block;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-style: italic;
+}
+
+.node-item:last-child {
+    border-bottom: none;
+}
+
+.node-item button:hover {
+    transform: scale(1.1);
+    background: #00d4ff; /* Un azzurro più acceso al passaggio */
+}
+
+#artnet-nodes-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+#artnet-nodes-list::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 10px;
+}
+
+
+/*
+MODAL MACRO 
+*/
+
+/* --- MODAL MACRO --- */
+#macro-modal .modal-content {
+    max-width: 450px; /* Più stretto per sembrare un telecomando */
+    border: 2px solid var(--accent-color);
+}
+
+.macro-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr); /* 2 colonne per 5 righe */
+    gap: 12px;
+    margin-top: 15px;
+}
+
+/* Stile base dei bottoni slot */
+.btn-macro-slot {
+    padding: 15px 10px;
+    background: #1a1a1a;
+    border: 2px solid #444;
+    border-radius: 8px;
+    color: #eee;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+}
+
+/* Slot Occupato (ha già una macro) */
+.btn-macro-slot.occupied {
+    border-color: var(--accent-color);
+    background: rgba(0, 212, 255, 0.05);
+}
+
+.btn-macro-slot.occupied .slot-name {
+    color: var(--accent-color);
+    font-weight: bold;
+}
+
+/* Effetto Hover / Pressione */
+.btn-macro-slot:active {
+    transform: scale(0.96);
+    background: var(--accent-color);
+    color: #000;
+}
+
+.btn-macro-slot:active .slot-name {
+    color: #000;
+}
+
+/* Testi all'interno dello slot */
+.slot-num {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    opacity: 0.6;
+}
+
+.slot-name {
+    font-size: 0.95rem;
+    text-align: center;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2; /* Taglia il nome se troppo lungo su 2 righe */
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Stato durante il SALVATAGGIO (SAVE MODE) */
+/* Possiamo aggiungere una classe al modal tramite JS quando siamo in REC */
+.modal-save-active .btn-macro-slot {
+    border-style: dashed; /* Cambia bordo per far capire che "scriverai" qui */
+}
+
+.modal-save-active .btn-macro-slot:hover {
+    border-color: #ff4d4d; /* Rosso soft per il salvataggio */
+    background: rgba(255, 77, 77, 0.1);
+}
+
+/* Input Nome Macro */
+#macro-name {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1rem;
+    text-align: center;
+    border-radius: 4px;
+    outline: none;
+}
+
+#macro-name:focus {
+    border-color: var(--accent-color) !important;
+    box-shadow: 0 0 5px var(--accent-color);
+}
+/* --- MODAL SNAP --- */
+#snap-modal .modal-content {
+    max-width: 450px;
+    border: 2px solid #ff4444; /* Rosso Snap */
+}
+
+.snap-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 15px;
+}
+
+/* Stile base dei bottoni slot Snap */
+.btn-snap-slot {
+    padding: 15px 10px;
+    background: #1a1a1a;
+    border: 2px solid #444;
+    border-radius: 8px;
+    color: #eee;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+}
+
+/* Slot Occupato (ha già uno snapshot salvato) */
+.btn-snap-slot.occupied {
+    border-color: #ff4444;
+    background: rgba(255, 68, 68, 0.05);
+}
+
+.btn-snap-slot.occupied .slot-name {
+    color: #ff4444;
+    font-weight: bold;
+}
+
+/* Effetto Pressione */
+.btn-snap-slot:active {
+    transform: scale(0.96);
+    background: #ff4444;
+    color: #fff;
+    border-color: #fff;
+}
+
+.btn-snap-slot:active .slot-name,
+.btn-snap-slot:active .slot-num {
+    color: #fff;
+    opacity: 1;
+}
+
+/* Testi all'interno dello slot Snap */
+.slot-num {
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+    opacity: 0.6;
+}
+
+.slot-name {
+    font-size: 0.95rem;
+    text-align: center;
+    word-break: break-word;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Stato durante il SALVATAGGIO (SAVE MODE) */
+/* Applicato al contenitore snap-grid quando si entra in modalità GRAB */
+.modal-save-active .btn-snap-slot {
+    border-style: dashed;
+    border-color: #ff4444;
+}
+
+.modal-save-active .btn-snap-slot:hover {
+    background: rgba(255, 68, 68, 0.15);
+}
+
+/* Input Nome Snap */
+#snap-name-input {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 1.1rem;
+    text-align: center;
+    border-radius: 4px;
+    outline: none;
+    background: #000;
+    color: #fff;
+    border: 1px solid #444;
+    padding: 10px;
+    width: 100%;
+}
+
+#snap-name-input:focus {
+    border-color: #ff4444 !important;
+    box-shadow: 0 0 5px rgba(255, 68, 68, 0.5);
+}
