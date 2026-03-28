@@ -23,7 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Inizializzazione interfacce
     toggleIPFields();
     autoPopulateWifi();
-
+    loadPresetsFromESP();
 
 
 
@@ -1118,8 +1118,8 @@ function handleSnapAction(id) {
 // dropdown menu off e spacing 
 
 const state = {
-  offset: { presets: ['1', '1,4,5', '1,5,6', '1,2,3,4'], current: '1,5,6' },
-  spacing: { presets: ['1', '5', '10', '15'], current: '10' }
+  offset: { presets: [], current: '1' },
+  spacing: { presets: [], current: '1' }
 };
 
 function renderList(type) {
@@ -1149,20 +1149,45 @@ function selectPreset(type, val) {
 }
 
 function deletePreset(type, idx) {
-  state[type].presets.splice(idx, 1);
-  renderList(type);
+    const val = state[type].presets[idx];
+    
+    // Elimina su ESP32
+    fetch(`/delete_preset?type=${type}&value=${encodeURIComponent(val)}`)
+        .then(r => r.json())
+        .then(data => {
+            state[type].presets = data;
+            renderList(type);
+        })
+        .catch(() => {
+            // Fallback locale
+            state[type].presets.splice(idx, 1);
+            renderList(type);
+        });
 }
 
 function addPreset(type) {
-  const inp = document.getElementById('add-' + type);
-  const val = inp.value.trim();
-  if (!val) return;
-  if (!state[type].presets.includes(val)) {
-    state[type].presets.push(val);
-  }
-  inp.value = '';
-  selectPreset(type, val);
-  renderList(type);
+    const inp = document.getElementById('add-' + type);
+    const val = inp.value.trim();
+    if (!val) return;
+    
+    // Salva su ESP32
+    fetch(`/save_preset?type=${type}&value=${encodeURIComponent(val)}`)
+        .then(r => r.json())
+        .then(data => {
+            state[type].presets = data;
+            inp.value = '';
+            selectPreset(type, val);
+            renderList(type);
+        })
+        .catch(() => {
+            // Fallback locale se ESP non risponde
+            if (!state[type].presets.includes(val)) {
+                state[type].presets.push(val);
+            }
+            inp.value = '';
+            selectPreset(type, val);
+            renderList(type);
+        });
 }
 
 function toggleDropdown(type) {
@@ -1195,6 +1220,31 @@ document.getElementById('add-offset').addEventListener('keydown', e => {
 document.getElementById('add-spacing').addEventListener('keydown', e => {
   if (e.key === 'Enter') addPreset('spacing');
 });
+
+function loadPresetsFromESP() {
+    fetch('/get_presets?type=offset')
+        .then(r => r.json())
+        .then(data => {
+            state.offset.presets = data.length > 0 ? data : ['1'];
+            renderList('offset');
+        })
+        .catch(() => {
+            state.offset.presets = ['1'];
+            renderList('offset');
+        });
+
+    fetch('/get_presets?type=spacing')
+        .then(r => r.json())
+        .then(data => {
+            state.spacing.presets = data.length > 0 ? data : ['1'];
+            renderList('spacing');
+        })
+        .catch(() => {
+            state.spacing.presets = ['1'];
+            renderList('spacing');
+        });
+}
+
 
 renderList('offset');
 renderList('spacing');

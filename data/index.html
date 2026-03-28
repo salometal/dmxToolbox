@@ -232,15 +232,12 @@ KEYPAD MODE STANDALONE
                 <span class="slider"></span>
             </label>
         </div>
-    <!--    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
-            <div><label>Offsets (es. 1,5)</label><input type="text" id="off-list" value="1"></div>
-            <div><label>Spacing (es. 10)</label><input type="number" id="off-step" value="1"></div>
-        </div>-->
+
             <div class="fields-row">
                 <div class="field-wrap" id="wrap-offset">
                 <label>Offsets</label>
                 <div class="input-with-btn">
-                    <input type="text" id="input-offset" value="1,5,6" placeholder="es. 1,5,6">
+                    <input type="text" id="input-offset" value="1" placeholder="es. 1,5,6">
                     <button class="btn-dropdown" id="btn-offset" onclick="toggleDropdown('offset')">▼</button>
                 </div>
                 <div class="dropdown-panel" id="dd-offset">
@@ -255,7 +252,7 @@ KEYPAD MODE STANDALONE
                 <div class="field-wrap" id="wrap-spacing">
                 <label>Spacing</label>
                 <div class="input-with-btn">
-                    <input type="text" id="input-spacing" value="10" placeholder="es. 10">
+                    <input type="text" id="input-spacing" value="1" placeholder="es. 10">
                     <button class="btn-dropdown" id="btn-spacing" onclick="toggleDropdown('spacing')">▼</button>
                 </div>
                 <div class="dropdown-panel" id="dd-spacing">

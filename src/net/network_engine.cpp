@@ -545,6 +545,81 @@ server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
             request->send(404, "text/plain", "File config.bin non trovato.");
         }
     });
+            // --- ROTTA GET PRESETS  ---
+        server.on("/get_presets", HTTP_GET, [](AsyncWebServerRequest *request){
+            String type = request->hasParam("type") ? request->getParam("type")->value() : "";
+            if (type != "offset" && type != "spacing") {
+                request->send(400, "text/plain", "ERR_TYPE");
+                return;
+            }
+            String fileName = "/presets_" + type + ".json";
+            if (LittleFS.exists(fileName)) {
+                request->send(LittleFS, fileName, "application/json");
+            } else {
+                request->send(200, "application/json", "[]");
+            }
+        });
+
+        // --- ROTTA SAVE PRESET ---
+        server.on("/save_preset", HTTP_GET, [](AsyncWebServerRequest *request){
+            String type = request->hasParam("type") ? request->getParam("type")->value() : "";
+            String value = request->hasParam("value") ? request->getParam("value")->value() : "";
+            if (type.length() == 0 || value.length() == 0) {
+                request->send(400, "text/plain", "ERR_PARAMS");
+                return;
+            }
+            String fileName = "/presets_" + type + ".json";
+            
+            // Leggi array esistente
+            String json = "[]";
+            if (LittleFS.exists(fileName)) {
+                File f = LittleFS.open(fileName, "r");
+                if (f) { json = f.readString(); f.close(); }
+            }
+            
+            // Aggiungi valore se non esiste già
+            if (json.indexOf("\"" + value + "\"") == -1) {
+                json.remove(json.lastIndexOf("]"));
+                if (json.length() > 1) json += ",";
+                json += "\"" + value + "\"]";
+            }
+            
+            File f = LittleFS.open(fileName, "w");
+            if (f) { f.print(json); f.close(); }
+            
+            request->send(200, "application/json", json);
+        });
+
+        // --- ROTTA DELETE PRESET ---
+        server.on("/delete_preset", HTTP_GET, [](AsyncWebServerRequest *request){
+            String type = request->hasParam("type") ? request->getParam("type")->value() : "";
+            String value = request->hasParam("value") ? request->getParam("value")->value() : "";
+            if (type.length() == 0 || value.length() == 0) {
+                request->send(400, "text/plain", "ERR_PARAMS");
+                return;
+            }
+            String fileName = "/presets_" + type + ".json";
+            
+            if (!LittleFS.exists(fileName)) {
+                request->send(200, "application/json", "[]");
+                return;
+            }
+            
+            File f = LittleFS.open(fileName, "r");
+            String json = f.readString();
+            f.close();
+            
+            // Rimuovi il valore
+            String toRemove = "\"" + value + "\"";
+            json.replace(","+toRemove, "");
+            json.replace(toRemove+",", "");
+            json.replace(toRemove, "");
+            
+            f = LittleFS.open(fileName, "w");
+            if (f) { f.print(json); f.close(); }
+            
+            request->send(200, "application/json", json);
+        });
 
     server.on("/factoryreset", HTTP_GET, [](AsyncWebServerRequest *request){
         memset(settings.ssid, 0, sizeof(settings.ssid));
