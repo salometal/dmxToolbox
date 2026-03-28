@@ -681,11 +681,12 @@ function k(v) {
         return;
     }
 
-    // 2. GESTIONE INVIO (ENT)
-if (v === 'ENT' || v.includes('ENT')) {
+        // 2. GESTIONE INVIO (ENT)
+    if (v === 'ENT' || v.includes('ENT')) {
         if (currentCmd.trim() !== "") {
-            // 1. Salviamo il numero pulito PRIMA di aggiungere extra (es. "1")
-            let channelOnly = currentCmd.trim()
+            // 1. Salva la selezione pulita (senza AT) prima di aggiungere extra
+            let atIdx = currentCmd.indexOf(" AT ");
+            let channelOnly = atIdx !== -1 ? currentCmd.substring(0, atIdx).trim() : currentCmd.trim();
 
             // 2. Componiamo il comando completo per il server (es. "1 AT 255")
             let extra = v.replace('ENT', '').trim();
@@ -696,13 +697,17 @@ if (v === 'ENT' || v.includes('ENT')) {
             
             // 4. Gestione Display post-invio
             if (isCheckMode) {
-                // Ripristiniamo solo il numero per permettere NEXT/LAST
+                // SOLO mode — mantieni selezione, pulisci AT
                 currentCmd = channelOnly; 
                 d.innerText = "SOLO _ " + currentCmd;
             } else {
-                // Modalità normale: pulizia totale
-                currentCmd = "";
-                d.innerText = "CHAN _";
+                // CHAN mode — mantieni selezione se presente, pulisci AT
+                currentCmd = channelOnly;
+                if (channelOnly !== "") {
+                    d.innerText = "CHAN _ " + currentCmd;
+                } else {
+                    d.innerText = "CHAN _";
+                }
             }
         }
         return;
@@ -719,62 +724,49 @@ if (v === 'ENT' || v.includes('ENT')) {
     // 4. GESTIONE NAVIGAZIONE (NEXT / LAST)
 // 4. GESTIONE NAVIGAZIONE (NEXT / LAST) - VERSIONE PULITA
    // 4. GESTIONE NAVIGAZIONE (NEXT / LAST)
-    if (v === 'NEXT' || v === 'LAST') {
-        if (!isCheckMode || currentCmd.trim() === "") return;
+if (v === 'NEXT' || v === 'LAST') {
+    if (!isCheckMode || currentCmd.trim() === "") return;
 
+    const off = document.getElementById('input-offset').value;
+    const stp = parseInt(document.getElementById('input-spacing').value) || 1;
+    const multiplier = (v === 'NEXT') ? 1 : -1;
 
-        const off = document.getElementById('input-offset').value;
-        const stp = parseInt(document.getElementById('input-spacing').value) || 1;
-        const multiplier = (v === 'NEXT') ? 1 : -1;
-
-        // --- CALCOLO DEL JUMP (Ingombro + Spacing) ---
-        let numbersOnly = currentCmd.match(/\d+/g);
-        if (!numbersOnly) return;
-        let intNumbers = numbersOnly.map(Number);
-        let minID = Math.min(...intNumbers);
-        let maxID = Math.max(...intNumbers);
-        
-        // Il salto è l'ampiezza della selezione + lo spacing (stp)
-        let jump = (maxID - minID) + stp;
-        let offsetAmount = multiplier * jump;
-
-        // 1. Troviamo tutti i numeri e gli operatori separatamente (Tua logica originale)
-        let parts = currentCmd.trim().split(/(\+|\-|THRU|AT|FULL|OFF)/i);
-
-        let newParts = parts.map(part => {
-            let trimmed = part.trim();
-            if (!trimmed) return "";
-            
-            // Se è un numero, aggiungiamo il JUMP calcolato
-            if (!isNaN(trimmed)) {
-                let val = parseInt(trimmed) + offsetAmount;
-                return val < 1 ? 1 : (val > 512 ? 512 : val);
-            }
-            // Se è un operatore (+, THRU, etc.), lo lasciamo invariato
-            return trimmed;
-        });
-
-        // 2. Ricostruiamo la stringa con gli spazi corretti
-        currentCmd = newParts.filter(p => p !== "").join(" ");
-        
-        // 3. Invio all'ESP32 (Usiamo spacing invece di step 
-        // come parametro per il C++)
-         // --- DEBUG LOG ---
-        console.log("--- DEBUG NEXT/LAST ---");
-        console.log("Comando Originale:", parts.join(""));
-        console.log("Comando Calcolato dal JS:", currentCmd);
-        console.log("Offset inviato:", off);
-        console.log("Spacing (Step) inviato:", stp);
-        console.log("URL Finale:", `/standalone?cmd=${encodeURIComponent(currentCmd)}&offsets=${off}&spacing=${stp}`);
-        
-        
-        fetch(`/standalone?cmd=${encodeURIComponent(currentCmd)}&type=${v}&offsets=${off}&step=${stp}&_t=${Date.now()}`);
-        
-        // 4. Update Display
-        d.innerText = "SOLO _ " + currentCmd;
-        return;
+    // Separa la selezione dal valore AT
+    let selectionPart = currentCmd;
+    let atPart = "";
+    const atIdx = currentCmd.indexOf(" AT ");
+    if (atIdx !== -1) {
+        selectionPart = currentCmd.substring(0, atIdx);
+        atPart = currentCmd.substring(atIdx); // es. " AT 50"
     }
 
+    // Calcola jump solo sulla parte selezione
+    let numbersOnly = selectionPart.match(/\d+/g);
+    if (!numbersOnly) return;
+    let intNumbers = numbersOnly.map(Number);
+    let minID = Math.min(...intNumbers);
+    let maxID = Math.max(...intNumbers);
+    let jump = (maxID - minID) + stp;
+    let offsetAmount = multiplier * jump;
+
+    let parts = selectionPart.trim().split(/(\+|\-|THRU|AT|FULL|OFF)/i);
+    let newParts = parts.map(part => {
+        let trimmed = part.trim();
+        if (!trimmed) return "";
+        if (!isNaN(trimmed)) {
+            let val = parseInt(trimmed) + offsetAmount;
+            return val < 1 ? 1 : (val > 512 ? 512 : val);
+        }
+        return trimmed;
+    });
+
+    // Ricostruisci con la parte AT invariata
+    currentCmd = newParts.filter(p => p !== "").join(" ") + atPart;
+    
+    fetch(`/standalone?cmd=${encodeURIComponent(currentCmd)}&type=${v}&offsets=${off}&step=${stp}&_t=${Date.now()}`);
+    d.innerText = "SOLO _ " + currentCmd;
+    return;
+}
     // 5. GESTIONE MODALITÀ SOLO
     if (v === 'SOLO') {
         fetch(`/standalone?type=SOLO&offsets=${off}&step=${stp}`);
