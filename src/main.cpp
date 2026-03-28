@@ -31,6 +31,10 @@ bool keypadModeEnabled = false; // keypad enable
 bool udpActive = false;
 bool wasRunningBeforeKeypad = false;
 bool artnetConfirmed = false;
+bool sceneActive = false;
+
+
+
 uint32_t lastPacketTime = 0;
 
 

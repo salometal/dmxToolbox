@@ -50,7 +50,9 @@ extern volatile SemaphoreHandle_t dmx_mutex;
 extern bool dmxDriverInstalled; 
 extern dmx_port_t dmxPort;
 extern bool artnetConfirmed;
+extern bool sceneActive;
 extern uint32_t lastPacketTime;
+
 
 // AGGIUNGI QUESTI: Servono al loop() per gestire i task
 extern TaskHandle_t dmxTaskHandle;

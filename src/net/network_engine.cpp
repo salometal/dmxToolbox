@@ -313,6 +313,8 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
         }
         // ArtNet Confirmed (Indice 13)
         s += "|" + String(artnetConfirmed ? "1" : "0");
+        s += "|" + String(sceneActive ? "1" : "0");       // 14 ← snap active flag
+
                     
         request->send(200, "text/plain", s);
     });
@@ -530,11 +532,27 @@ server.on("/save_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
 });
 
 server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("id")) {
-        int id = request->getParam("id")->value().toInt();
-        runSnap(id);
-        request->send(200, "text/plain", "OK");
+    int id = request->getParam("id")->value().toInt();
+    File f = LittleFS.open("/s" + String(id) + ".dat", "r");
+    
+    if (f) {
+        if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            f.read(main_dmx_buffer, 513);
+            f.close();
+            sceneActive = true;           // ← attiva override
+            settings.isRunning = false;   // ← ferma modalità attiva
+            xSemaphoreGive(dmx_mutex);
+            request->send(200, "text/plain", "OK");
+        }
+    } else {
+        request->send(404, "text/plain", "FILE_NOT_FOUND");
     }
+});
+
+server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
+    sceneActive = false;
+    Serial.println("[SCENE] Override rilasciato");
+    request->send(200, "text/plain", "OK");
 });
 
 

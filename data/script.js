@@ -99,7 +99,14 @@ function updateStatus() {
                     const modes = ["DMX -> ARTNET", "ARTNET -> DMX", "STANDALONE"];
                
                   const artnetConfirmed = p[13] === "1";
-                 if (keypadActive) {
+                  const sceneActive = p[14] === "1";
+                  const sceneBadge = document.getElementById("scene-badge");
+                if (sceneActive) {
+                    modeBadge.innerText = "🎬 SCENE STOP";
+                    modeBadge.style.backgroundColor = "#ff4444";
+                    modeBadge.style.cursor = "pointer";
+                    modeBadge.onclick = releaseScene;
+                } else if (keypadActive)  {
                     // PRIORITÀ ASSOLUTA AL KEYPAD
                     modeBadge.innerText = "KEYPAD";
                     modeBadge.style.backgroundColor = "#4b48ee"; // Usiamo l'azzurro per distinguerlo dal verde Art-Net
@@ -569,8 +576,9 @@ const label = (action === "/dmxin") ? "DMX IN -> Art-Net OUT" : "Art-Net IN -> D
 if (action === "/dmxin") {
     if (!confirm("Vuoi avviare la modalità " + label + "?")) return;
 }
-            
+            fetch('/release_snap'); // ← manda snap release 
             params.set("run", "1");
+
 
             // Feedback visivo specifico per Art-Net IN (sniffer)
             const btnArtNet = document.getElementById("btn-ctrl-artnetin");
@@ -860,6 +868,7 @@ function toggleKeypadMode() {
 
     } else {
         // --- STATO ATTIVATO ---
+         fetch('/release_snap');
         display.style.color = "";        // Torna al colore originale
         display.style.opacity = "1";
         display.innerText = isCheckMode ? "SOLO _" : "CHAN _";
@@ -1129,7 +1138,9 @@ function handleSnapAction(id) {
             .catch(err => console.error("Errore fetch snap run:", err));
     }
 }
-
+function releaseScene() {
+    fetch('/release_snap').then(() => updateStatus());
+}
 
 // dropdown menu off e spacing 
 

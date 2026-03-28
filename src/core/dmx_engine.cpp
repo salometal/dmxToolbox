@@ -36,6 +36,14 @@ void dmxTask(void *pvParameters) {
         esp_task_wdt_reset();
 
         if (!settings.isRunning) {
+            if (sceneActive) {
+                // Continua a mandare il buffer scena
+                dmx_write(dmxPort, main_dmx_buffer, DMX_PACKET_SIZE);
+                dmx_send(dmxPort);
+                dmx_wait_sent(dmxPort, pdMS_TO_TICKS(30));
+                vTaskDelay(pdMS_TO_TICKS(40));
+                continue;
+            }
             if (millis() - lastHeartbeat > 5000) {
                 Serial.println("[CORE 0] Standby (Task vivo)");
                 lastHeartbeat = millis();
