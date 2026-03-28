@@ -32,6 +32,7 @@ bool udpActive = false;
 bool wasRunningBeforeKeypad = false;
 bool artnetConfirmed = false;
 bool sceneActive = false;
+bool preBlackoutRunning = false;
 
 
 

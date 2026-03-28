@@ -43,11 +43,13 @@
         <div class="extra-grid">
             <div class="extra-col">
                 <h3 class="extra-title">UTILITY </h3>
-                <button class="btn-extra btn-snap" onclick="openSnapModal('GRAB');">📸 SNAPSHOT</button>
-                <button class="btn-extra btn-list" onclick="openSnapModal();">📂 SNAP LIST</button>
-                <button class="btn-extra btn-ident" onclick="identifyNode();">🔦 IDENTIFY</button>
-                <button class="btn-extra btn-reboot" onclick="rebootNode();">🔄 RIAVVIA </button>
-               
+                    <button class="btn-extra btn-snap" onclick="openSnapModal('GRAB');">📸 SNAPSHOT</button>
+                    <button class="btn-extra btn-list" onclick="openSnapModal();">📂 SNAP LIST</button>
+                    <hr style="border:0; border-top:1px solid var(--accent); margin:8px 0; opacity:0.4;">
+                    <button class="btn-extra btn-reboot" onclick="blackout();" style="background:rgba(200,35,51,0.3) !important; border-color:var(--danger);">⬛ BLACKOUT</button>
+                    <hr style="border:0; border-top:1px solid var(--accent); margin:8px 0; opacity:0.4;">
+                    <button class="btn-extra btn-ident" onclick="identifyNode();">🔦 IDENTIFY</button>
+                    <button class="btn-extra btn-reboot" onclick="rebootNode();">🔄 RIAVVIA </button>
             </div>
             <div class="extra-col">
                 <h3 class="extra-title">SISTEMA</h3>

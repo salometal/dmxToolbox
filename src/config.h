@@ -52,7 +52,7 @@ extern dmx_port_t dmxPort;
 extern bool artnetConfirmed;
 extern bool sceneActive;
 extern uint32_t lastPacketTime;
-
+extern bool preBlackoutRunning;
 
 // AGGIUNGI QUESTI: Servono al loop() per gestire i task
 extern TaskHandle_t dmxTaskHandle;

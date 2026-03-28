@@ -22,6 +22,7 @@ extern TaskHandle_t netTaskHandle; // CORREZIONE 1: Necessario per la gestione t
 extern volatile int mutex_owner;
 extern bool keypadModeEnabled;
 extern bool wasRunningBeforeKeypad;
+bool blackoutActive = false;
 extern uint8_t *keypad_dmx_buffer;
 
 
@@ -314,7 +315,7 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
         // ArtNet Confirmed (Indice 13)
         s += "|" + String(artnetConfirmed ? "1" : "0");
         s += "|" + String(sceneActive ? "1" : "0");       // 14 ← snap active flag
-
+        s += "|" + String(blackoutActive ? "1" : "0"); // 15 blackout flag
                     
         request->send(200, "text/plain", s);
     });
@@ -506,54 +507,57 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
     }
 });
 
-// --- ROTTA ESECUZIONE MACRO ---
-server.on("/run_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("id")) {
-        int id = request->getParam("id")->value().toInt();
-        runMacro(id);
-        request->send(200, "text/plain", "OK");
-    }
-});
-// --- ROTTA SALVATAGGIO SNAP ---
-server.on("/save_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
-    if (request->hasParam("id") && request->hasParam("name")) {
-        int id = request->getParam("id")->value().toInt();
-        String name = request->getParam("name")->value();
-        if (id >= 0 && id < 10) {
-            String sanitized = name;
-            sanitized.replace("|", "");
-            sanitized.replace(",", "");
-            sanitized = sanitized.substring(0, 15);
-            saveSnap(id, sanitized.c_str());
-            saveConfiguration();
-            request->send(200, "text/plain", "OK");
-        }
-    }
-});
+        // --- ROTTA ESECUZIONE MACRO ---
+        server.on("/run_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
+            if (request->hasParam("id")) {
+                int id = request->getParam("id")->value().toInt();
+                runMacro(id);
+                request->send(200, "text/plain", "OK");
+            }
+        });
+        // --- ROTTA SALVATAGGIO SNAP ---
+        server.on("/save_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
+            if (request->hasParam("id") && request->hasParam("name")) {
+                int id = request->getParam("id")->value().toInt();
+                String name = request->getParam("name")->value();
+                if (id >= 0 && id < 10) {
+                    String sanitized = name;
+                    sanitized.replace("|", "");
+                    sanitized.replace(",", "");
+                    sanitized = sanitized.substring(0, 15);
+                    saveSnap(id, sanitized.c_str());
+                    saveConfiguration();
+                    request->send(200, "text/plain", "OK");
+                }
+            }
+        });
 
-server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
-    int id = request->getParam("id")->value().toInt();
-    File f = LittleFS.open("/s" + String(id) + ".dat", "r");
-    
-    if (f) {
-        if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            f.read(main_dmx_buffer, 513);
-            f.close();
-            sceneActive = true;           // ← attiva override
-            settings.isRunning = false;   // ← ferma modalità attiva
-            xSemaphoreGive(dmx_mutex);
-            request->send(200, "text/plain", "OK");
-        }
-    } else {
-        request->send(404, "text/plain", "FILE_NOT_FOUND");
-    }
-});
+        server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
+            int id = request->getParam("id")->value().toInt();
+            File f = LittleFS.open("/s" + String(id) + ".dat", "r");
+            
+            if (f) {
+                if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                    f.read(main_dmx_buffer, 513);
+                    f.close();
+                    sceneActive = true;           // ← attiva override
+                    settings.isRunning = false;   // ← ferma modalità attiva
+                    xSemaphoreGive(dmx_mutex);
+                    request->send(200, "text/plain", "OK");
+                }
+            } else {
+                request->send(404, "text/plain", "FILE_NOT_FOUND");
+            }
+        });
 
-server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
-    sceneActive = false;
-    Serial.println("[SCENE] Override rilasciato");
-    request->send(200, "text/plain", "OK");
-});
+        server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
+            sceneActive = false;
+            blackoutActive = false;
+            settings.isRunning = preBlackoutRunning; // ← ripristina
+            preBlackoutRunning = false;
+            Serial.println("[SCENE] Override rilasciato");
+            request->send(200, "text/plain", "OK");
+        });
 
 
     server.on("/download-config", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -637,6 +641,19 @@ server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
             if (f) { f.print(json); f.close(); }
             
             request->send(200, "application/json", json);
+        });
+
+        server.on("/blackout", HTTP_GET, [](AsyncWebServerRequest *request){
+            if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                memset(main_dmx_buffer, 0, 513);
+                sceneActive = true; // ← usa stessa logica della scena
+                 blackoutActive = true;
+                preBlackoutRunning = settings.isRunning; // ← salva stato
+                settings.isRunning = false; 
+                xSemaphoreGive(dmx_mutex);
+            }
+            Serial.println("[SYSTEM] Blackout eseguito");
+            request->send(200, "text/plain", "OK");
         });
 
     server.on("/factoryreset", HTTP_GET, [](AsyncWebServerRequest *request){

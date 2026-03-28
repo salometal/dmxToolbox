@@ -100,27 +100,41 @@ function updateStatus() {
                
                   const artnetConfirmed = p[13] === "1";
                   const sceneActive = p[14] === "1";
+                  const blackoutActive = p[15] === "1";
+
                   const sceneBadge = document.getElementById("scene-badge");
-                if (sceneActive) {
+
+                if (blackoutActive) {
+                    modeBadge.innerText = "⬛ BLACKOUT";
+                    modeBadge.style.backgroundColor = "#000";
+                    modeBadge.style.border = "1px solid #ff4444";
+                    modeBadge.style.cursor = "pointer";
+                    modeBadge.onclick = releaseScene;
+                } else if (sceneActive) {
                     modeBadge.innerText = "🎬 SCENE STOP";
                     modeBadge.style.backgroundColor = "#ff4444";
                     modeBadge.style.cursor = "pointer";
+                    modeBadge.style.border = "";
                     modeBadge.onclick = releaseScene;
                 } else if (keypadActive)  {
                     // PRIORITÀ ASSOLUTA AL KEYPAD
                     modeBadge.innerText = "KEYPAD";
+                    modeBadge.style.border = "";
                     modeBadge.style.backgroundColor = "#4b48ee"; // Usiamo l'azzurro per distinguerlo dal verde Art-Net
                 } else if (run === "0") {
                     // Stato al BOOT o FERMO
                     modeBadge.innerText = "NODO: NON ATTIVO";
+                    modeBadge.style.border = "";
                     modeBadge.style.backgroundColor = "#6c757d"; // Grigio
                 }  else if (mode === "1" && run === "1" && !artnetConfirmed) {
                     modeBadge.innerText = "🔍 RICERCA SEGNALE...";
                     modeBadge.style.backgroundColor = "#ff9800";
+                    modeBadge.style.border = "";
                         
                 }else {
                     // Stato in ESECUZIONE NORMALE
                     modeBadge.innerText = "LIVE: " + (modes[mode] || "IDLE");
+                    modeBadge.style.border = "";
                     modeBadge.style.backgroundColor = "var(--success)"; // Verde
                 }
                
@@ -1275,3 +1289,7 @@ function loadPresetsFromESP() {
 
 renderList('offset');
 renderList('spacing');
+// blaskout 
+function blackout() {
+    fetch('/blackout').then(() => updateStatus());
+}
