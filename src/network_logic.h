@@ -5,6 +5,7 @@
 #include <WiFiUdp.h>
 #include <LittleFS.h>
 #include <esp_task_wdt.h>
+#include "core/scene_manager.h"
 #include "config.h"
 #include "artnet.h" // Inclusione per usare sendArtDmx e readArtDmx
 #include "keypad_logic.h"
@@ -488,27 +489,14 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("id") && request->hasParam("name")) {
         int id = request->getParam("id")->value().toInt();
         String name = request->getParam("name")->value();
-
         if (id >= 0 && id < 10) {
-            // 1. Copia il nome nel buffer char della struct
-            // strlcpy garantisce che la stringa sia terminata con \0 e non superi i 64 byte
-            strlcpy(settings.macros[id], name.c_str(), sizeof(settings.macros[id]));
-            
-            saveConfiguration(); // Scrive config.bin su LittleFS
-
-            // 2. Salvataggio Snapshot DMX
-            String fileName = "/m" + String(id) + ".dat";
-            File f = LittleFS.open(fileName, "w");
-            if (f) {
-                // Usiamo keypad_dmx_buffer che contiene lo stato attuale standalone
-                // Scriviamo 513 byte (Start Code + 512 canali)
-                f.write(keypad_dmx_buffer, 513);
-                f.close();
-                request->send(200, "text/plain", "OK");
-                Serial.printf("[MACRO] Salvata M%d: %s\n", id + 1, settings.macros[id]);
-            } else {
-                request->send(500, "text/plain", "ERR_FILE");
-            }
+            String sanitized = name;
+            sanitized.replace("|", "");
+            sanitized.replace(",", "");
+            sanitized = sanitized.substring(0, 15);
+            saveMacro(id, sanitized.c_str());
+            saveConfiguration();
+            request->send(200, "text/plain", "OK");
         } else {
             request->send(400, "text/plain", "ERR_ID");
         }
@@ -519,32 +507,8 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
 server.on("/run_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("id")) {
         int id = request->getParam("id")->value().toInt();
-        String fileName = "/m" + String(id) + ".dat";
-
-        if (LittleFS.exists(fileName)) {
-            File f = LittleFS.open(fileName, "r");
-            if (f) {
-                // PROTEZIONE MUTEX: carichiamo i dati nel buffer in sicurezza
-                // poichè il Core 0 potrebbe star leggendo nello stesso istante
-                if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
-                    f.read(keypad_dmx_buffer, 513);
-                    f.close();
-                    
-                    // Se hai una variabile per forzare l'update nel task DMX:
-                    // dmx_dirty = true; 
-                    
-                    xSemaphoreGive(dmx_mutex);
-                    request->send(200, "text/plain", "OK");
-                    Serial.printf("[MACRO] Eseguita M%d (%s)\n", id + 1, settings.macros[id]);
-                } else {
-                    request->send(500, "text/plain", "ERR_MUTEX");
-                }
-            } else {
-                request->send(500, "text/plain", "ERR_READ");
-            }
-        } else {
-            request->send(404, "text/plain", "NOT_FOUND");
-        }
+        runMacro(id);
+        request->send(200, "text/plain", "OK");
     }
 });
 // --- ROTTA SALVATAGGIO SNAP ---
@@ -552,48 +516,23 @@ server.on("/save_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("id") && request->hasParam("name")) {
         int id = request->getParam("id")->value().toInt();
         String name = request->getParam("name")->value();
-
         if (id >= 0 && id < 10) {
-            strlcpy(settings.snapNames[id], name.c_str(), sizeof(settings.snapNames[id]));
+            String sanitized = name;
+            sanitized.replace("|", "");
+            sanitized.replace(",", "");
+            sanitized = sanitized.substring(0, 15);
+            saveSnap(id, sanitized.c_str());
             saveConfiguration();
-
-            File f = LittleFS.open("/s" + String(id) + ".dat", "w");
-            if (f) {
-                if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                    // SALVIAMO SEMPRE IL BUFFER PRINCIPALE (quello che va ai fari)
-                    // Se sei in DMX IN, main_dmx_buffer contiene il DMX fisico.
-                    // Se sei in ARTNET IN, main_dmx_buffer contiene i dati di rete.
-                    f.write(main_dmx_buffer, 513); 
-                    
-                    xSemaphoreGive(dmx_mutex);
-                    f.close();
-                    request->send(200, "text/plain", "OK");
-                } else {
-                    request->send(500, "text/plain", "ERR_MUTEX");
-                }
-            }
+            request->send(200, "text/plain", "OK");
         }
     }
 });
 
 server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
-    int id = request->getParam("id")->value().toInt();
-    File f = LittleFS.open("/s" + String(id) + ".dat", "r");
-    
-    if (f) {
-        if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            f.read(main_dmx_buffer, 513);
-            f.close();
-            
-            // OPZIONALE: Se vuoi che lo Snap rimanga "bloccato" 
-            // dovremmo mettere settings.isRunning = false o una flag snapActive = true
-            // altrimenti il loop ArtNet lo sovrascriverà dopo 20ms!
-            
-            xSemaphoreGive(dmx_mutex);
-            request->send(200, "text/plain", "OK");
-        }
-    } else {
-        request->send(404, "text/plain", "FILE_NOT_FOUND");
+    if (request->hasParam("id")) {
+        int id = request->getParam("id")->value().toInt();
+        runSnap(id);
+        request->send(200, "text/plain", "OK");
     }
 });
 
