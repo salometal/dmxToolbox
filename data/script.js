@@ -13,6 +13,9 @@ let isScanning = false;
 let currentMacroMode = 'RUN'; // 'RUN' o 'SAVE'
 let macroNames = []; // Verrà popolata dal C++ (settings.macros)
 let currentSnapMode = 'LIST';
+let groupStart = 0;
+let groupEnd = 0;
+let groupStep = 1;
 
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -677,6 +680,9 @@ function k(v) {
     // 1. GESTIONE RESET (C)
     if (v === 'C') {
         currentCmd = "";
+        groupStart = 0;
+        groupEnd = 0;
+        groupStep = 1;
         d.innerText = isCheckMode ? "SOLO _" : "CHAN _";
         return;
     }
@@ -694,14 +700,21 @@ function k(v) {
             
             // 3. Invio al C++
             sendStandalone(); 
-            
+
+            // Rileva gruppo THRU in Solo Mode
+            if (isCheckMode && channelOnly.indexOf(" THRU ") !== -1) {
+                let thruParts = channelOnly.split(" THRU ");
+                groupStart = parseInt(thruParts[0].trim());
+                groupEnd = parseInt(thruParts[1].trim());
+                groupStep = parseInt(document.getElementById('input-spacing').value) || 1;
+                channelOnly = String(groupStart); // ← aggiorna channelOnly, non currentCmd
+            }
+
             // 4. Gestione Display post-invio
             if (isCheckMode) {
-                // SOLO mode — mantieni selezione, pulisci AT
                 currentCmd = channelOnly; 
                 d.innerText = "SOLO _ " + currentCmd;
             } else {
-                // CHAN mode — mantieni selezione se presente, pulisci AT
                 currentCmd = channelOnly;
                 if (channelOnly !== "") {
                     d.innerText = "CHAN _ " + currentCmd;
@@ -709,6 +722,7 @@ function k(v) {
                     d.innerText = "CHAN _";
                 }
             }
+
         }
         return;
     }
@@ -722,32 +736,44 @@ function k(v) {
     }
 
     // 4. GESTIONE NAVIGAZIONE (NEXT / LAST)
-// 4. GESTIONE NAVIGAZIONE (NEXT / LAST) - VERSIONE PULITA
-   // 4. GESTIONE NAVIGAZIONE (NEXT / LAST)
 if (v === 'NEXT' || v === 'LAST') {
     if (!isCheckMode || currentCmd.trim() === "") return;
 
     const off = document.getElementById('input-offset').value;
     const stp = parseInt(document.getElementById('input-spacing').value) || 1;
-    const multiplier = (v === 'NEXT') ? 1 : -1;
 
-    // Separa la selezione dal valore AT
-    let selectionPart = currentCmd;
-    let atPart = "";
-    const atIdx = currentCmd.indexOf(" AT ");
-    if (atIdx !== -1) {
-        selectionPart = currentCmd.substring(0, atIdx);
-        atPart = currentCmd.substring(atIdx); // es. " AT 50"
+    // Se c'è un gruppo attivo naviga dentro il gruppo
+    if (groupStart > 0 && groupEnd > 0) {
+        let atIdx = currentCmd.indexOf(" AT ");
+        let selectionPart = atIdx !== -1 ? currentCmd.substring(0, atIdx).trim() : currentCmd.trim();
+        let pivot = parseInt(selectionPart) || groupStart;
+
+        if (v === 'NEXT') {
+            pivot += groupStep;
+            if (pivot > groupEnd) pivot = groupStart; // wrap-around
+        } else {
+            pivot -= groupStep;
+            if (pivot < groupStart) pivot = groupEnd; // wrap-around
+        }
+
+        currentCmd = String(pivot);
+        fetch(`/standalone?cmd=${encodeURIComponent(currentCmd)}&type=${v}&offsets=${off}&step=${stp}&_t=${Date.now()}`);
+        d.innerText = "SOLO _ " + currentCmd;
+        return;
     }
 
-    // Calcola jump solo sulla parte selezione
+    // Nessun gruppo — comportamento originale
+    let atIdx = currentCmd.indexOf(" AT ");
+    let selectionPart = atIdx !== -1 ? currentCmd.substring(0, atIdx).trim() : currentCmd.trim();
+    let atPart = atIdx !== -1 ? currentCmd.substring(atIdx) : "";
+
     let numbersOnly = selectionPart.match(/\d+/g);
     if (!numbersOnly) return;
     let intNumbers = numbersOnly.map(Number);
     let minID = Math.min(...intNumbers);
     let maxID = Math.max(...intNumbers);
     let jump = (maxID - minID) + stp;
-    let offsetAmount = multiplier * jump;
+    let offsetAmount = (v === 'NEXT' ? 1 : -1) * jump;
 
     let parts = selectionPart.trim().split(/(\+|\-|THRU|AT|FULL|OFF)/i);
     let newParts = parts.map(part => {
@@ -760,9 +786,7 @@ if (v === 'NEXT' || v === 'LAST') {
         return trimmed;
     });
 
-    // Ricostruisci con la parte AT invariata
     currentCmd = newParts.filter(p => p !== "").join(" ") + atPart;
-    
     fetch(`/standalone?cmd=${encodeURIComponent(currentCmd)}&type=${v}&offsets=${off}&step=${stp}&_t=${Date.now()}`);
     d.innerText = "SOLO _ " + currentCmd;
     return;
