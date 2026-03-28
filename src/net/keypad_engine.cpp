@@ -1,0 +1,175 @@
+#include "keypad_engine.h"
+#include <Arduino.h>
+#include "config.h"
+// Riferimenti esterni
+extern uint8_t *keypad_dmx_buffer;
+extern volatile SemaphoreHandle_t dmx_mutex;
+extern volatile int mutex_owner;
+
+// STATO DEL SISTEMA (Persistente tra le chiamate)
+bool isSoloActive = false;
+String lastGroupCmd = "";
+int currentPivot = 1;
+int soloLevel = 178; // Default 70% (178/255)
+
+/**
+ * FUNZIONE CORE: Applica l'intensità a un Pivot + i suoi Offsets
+ * Qui è dove avviene il calcolo DMX "Ibrido"
+ */
+void executeFixture(int pivot, int valDMX, String offsets) {
+    // Calcolo base del primo canale (es. Pivot 11 con Spacing 10 -> Canale 101 se ragionassimo a fixture, 
+    // ma tu ragioni su base pivot + offset)
+    
+    // Split degli offsets (1, 2, 5...)
+    char* copyOff = strdup(offsets.c_str());
+    char* ptrOff = strtok(copyOff, ",");
+    
+    while (ptrOff != NULL) {
+        int offVal = atoi(ptrOff);
+        int targetChan = pivot + (offVal - 1); // Ragionamento ibrido
+        
+        if (targetChan >= 1 && targetChan <= 512) {
+            // Per ora solo Serial, ma pronta per il buffer
+            Serial.printf("  [DMX Out] Canale %d -> Valore %d\n", targetChan, valDMX);
+            keypad_dmx_buffer[targetChan] = (uint8_t)valDMX; 
+        }
+        ptrOff = strtok(NULL, ",");
+    }
+    free(copyOff);
+}
+
+/**
+ * PARSER PRINCIPALE
+ */
+/**
+ * FUNZIONE DI SUPPORTO: Parsing di gruppi (THRU / +)
+ * Gestisce l'accensione di più fixture e aggiorna il currentPivot all'ultimo elemento.
+ */
+void parseAndExecuteGroups(String target, int val, String off, int spc) {
+    int lp = currentPivot; // Valore di fallback
+    lastGroupCmd = target;
+    if (target.indexOf(" THRU ") != -1) {
+        int tPos = target.indexOf(" THRU ");
+        int startID = target.substring(0, tPos).toInt();
+        int endID = target.substring(tPos + 6).toInt();
+        
+        if (startID > 0 && endID > 0) {
+            for (int p = startID; p <= endID; p += spc) {
+                executeFixture(p, val, off);
+                lp = p; 
+            }
+        }
+    } else {
+        int startPos = 0;
+        int plusPos = target.indexOf("+");
+        while (startPos < target.length()) {
+            String currentFixStr = (plusPos != -1) ? target.substring(startPos, plusPos) : target.substring(startPos);
+            currentFixStr.trim(); // Modifica la stringa 'in place'
+            int p = currentFixStr.toInt();
+            if (p > 0) {
+                executeFixture(p, val, off);
+                lp = p;
+            }
+            if (plusPos == -1) break;
+            startPos = plusPos + 1;
+            plusPos = target.indexOf("+", startPos);
+        }
+    }
+    currentPivot = lp; // Aggiornamento globale del pivot
+}
+
+/**
+ * PARSER PRINCIPALE
+ */
+void processStandaloneCommand(String cmd, String type, String offsetStr, int spacing) {
+    // 1. RICEZIONE E PULIZIA
+    cmd.toUpperCase();
+    cmd.trim();
+    type.toUpperCase();
+    type.trim();
+    offsetStr.replace(".", ",");
+    
+
+    // TENTATIVO PRESA MUTEX
+    if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(25)) == pdTRUE) {
+        mutex_owner = 3; // Identificativo Standalone
+
+        // 2. CHECK TASTI RAPIDI (CLEAR / SOLO)
+        if (type == "CLEAR") {
+            
+            lastGroupCmd = "";      // <--- Questo resetta la memoria per il NEXT
+            currentPivot = 1;       // <--- Questo riporta il puntatore all'inizio
+            memset(keypad_dmx_buffer, 0, 513);
+            Serial.println("[SYSTEM] Blackout & Clear Totale");
+            xSemaphoreGive(dmx_mutex);
+            mutex_owner = 0;
+            return;
+        }
+
+        if (type == "SOLO") {
+            isSoloActive = !isSoloActive;
+            soloLevel = 178; // Reset 70%
+            Serial.printf("[SYSTEM] Modalità SOLO: %s\n", isSoloActive ? "ON" : "OFF");
+            xSemaphoreGive(dmx_mutex);
+            mutex_owner = 0;
+            return;
+        }
+
+            // 3. CHECK NAVIGAZIONE (NEXT/LAST in SOLO)
+        if ((type == "NEXT" || type == "LAST") && isSoloActive) {
+            if (cmd != "") {
+                memset(keypad_dmx_buffer, 0, 513);
+                parseAndExecuteGroups(cmd, soloLevel, offsetStr, spacing);
+            }
+            xSemaphoreGive(dmx_mutex);
+            mutex_owner = 0;
+            return;
+        }
+        // 4. PARSING STRINGA COMANDO
+        if (cmd != "") {
+            int atPos = cmd.indexOf(" AT ");
+            bool isGroup = (cmd.indexOf("+") != -1 || cmd.indexOf(" THRU ") != -1);
+
+            if (isSoloActive) {
+                // --- MODALITÀ SOLO ---
+                if (atPos != -1) {
+                    // Cambio intensità selezione corrente
+                    String strVal = cmd.substring(atPos + 4);
+                    soloLevel = (strVal == "FULL") ? 255 : map(strVal.toInt(), 0, 100, 0, 255);
+                    soloLevel = constrain(soloLevel, 0, 255);
+                    
+                    memset(keypad_dmx_buffer, 0, 513);
+                    executeFixture(currentPivot, soloLevel, offsetStr);
+                } 
+                else if (isGroup || cmd.toInt() > 0) {
+                    // Nuova selezione in SOLO (Singola o Gruppo)
+                    memset(keypad_dmx_buffer, 0, 513);
+                    
+                    if (isGroup) {
+                        parseAndExecuteGroups(cmd, soloLevel, offsetStr, spacing);
+                    } else {
+                        currentPivot = constrain(cmd.toInt(), 1, 512);
+                        lastGroupCmd = cmd;
+                        executeFixture(currentPivot, soloLevel, offsetStr);
+                    }
+                    Serial.printf("[SOLO] Attivo Pivot: %d\n", currentPivot);
+                }
+            } 
+            else {
+                // --- MODALITÀ STANDARD (CHAN) ---
+                if (atPos != -1) {
+                    String strTutteFixture = cmd.substring(0, atPos);
+                    String strValore = cmd.substring(atPos + 4);
+                    int dmxVal = (strValore == "FULL") ? 255 : map(strValore.toInt(), 0, 100, 0, 255);
+                    
+                    parseAndExecuteGroups(strTutteFixture, constrain(dmxVal, 0, 255), offsetStr, spacing);
+                }
+            }
+        }
+
+        // RILASCIO MUTEX FINALE
+        xSemaphoreGive(dmx_mutex);
+        mutex_owner = 0;
+    }
+}
+

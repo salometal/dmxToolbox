@@ -22,6 +22,7 @@ extern TaskHandle_t netTaskHandle; // CORREZIONE 1: Necessario per la gestione t
 extern volatile int mutex_owner;
 extern bool keypadModeEnabled;
 extern bool wasRunningBeforeKeypad;
+extern uint8_t *keypad_dmx_buffer;
 
 
 
