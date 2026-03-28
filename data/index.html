@@ -45,9 +45,9 @@
                 <h3 class="extra-title">UTILITY </h3>
                     <button class="btn-extra btn-snap" onclick="openSnapModal('GRAB');">📸 SNAPSHOT</button>
                     <button class="btn-extra btn-list" onclick="openSnapModal();">📂 SNAP LIST</button>
-                    <hr style="border:0; border-top:1px solid var(--accent); margin:8px 0; opacity:0.4;">
+                    <hr style="border:0; border-top:3px solid var(--accent); margin:8px 0;">
                     <button class="btn-extra btn-reboot" onclick="blackout();" style="background:rgba(200,35,51,0.3) !important; border-color:var(--danger);">⬛ BLACKOUT</button>
-                    <hr style="border:0; border-top:1px solid var(--accent); margin:8px 0; opacity:0.4;">
+                    <hr style="border:0; border-top:3px solid var(--accent); margin:8px 0;">
                     <button class="btn-extra btn-ident" onclick="identifyNode();">🔦 IDENTIFY</button>
                     <button class="btn-extra btn-reboot" onclick="rebootNode();">🔄 RIAVVIA </button>
             </div>
@@ -58,7 +58,59 @@
                 <div class="stat-line">FS: <span id="val-fs">-- %</span></div>
                 <div class="stat-line">UP: <span id="val-up" style="font-size: 0.6rem;">00:00:00</span></div>
             </div>
+                      
         </div>
+          <!-- SETUP — riga full width sotto -->
+            
+        <div style="margin-top:12px; padding-top:12px; border-top:3px solid var(--accent); opacity:0.8;">
+                <h3 class="extra-title">SETUP</h3>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px;">
+                    
+                    <div>
+                        <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">FADE SNAP (ms)</label>
+                        <input type="number" id="setup-fade-snap" value="0" min="0" max="5000" step="100"
+                            style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
+                    </div>
+
+                    <div>
+                        <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">FADE MACRO (ms)</label>
+                        <input type="number" id="setup-fade-macro" value="0" min="0" max="5000" step="100"
+                            style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
+                    </div>
+
+                    <div>
+                        <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">FADE KEYPAD (ms)</label>
+                        <input type="number" id="setup-fade-keypad" value="0" min="0" max="2000" step="50"
+                            style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
+                    </div>
+
+                    <div>
+                        <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">LIVELLO SOLO (%)</label>
+                        <input type="number" id="setup-solo-level" value="70" min="0" max="100"
+                            style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
+                    </div>
+
+                    <div>
+                        <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">BLACKOUT AUTO (min)</label>
+                        <input type="number" id="setup-blackout-auto" value="0" min="0" max="60"
+                            style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; justify-content:flex-end;">
+                        <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">SALVA STATO AL RIAVVIO</label>
+                        <label class="switch" style="margin-top:4px;">
+                            <input type="checkbox" id="setup-autosave">
+                            <span class="slider"></span>
+                        </label>
+                    </div>
+
+                </div>
+
+                <button class="btn-extra" onclick="saveSetup()" 
+                        style="width:100%; background:rgba(33,136,56,0.2); border:1px solid var(--success); color:var(--success);">
+                    💾 SALVA IMPOSTAZIONI
+                </button>
+            </div>
     </div>
 </header>
 

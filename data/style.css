@@ -70,7 +70,7 @@ header {
 }
 
 header.expanded .header-extra-panel {
-    max-height: 350px;
+    max-height: none;
     opacity: 1;
     padding: 20px 15px;
     border-top: 1px solid #222;

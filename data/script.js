@@ -1293,3 +1293,8 @@ renderList('spacing');
 function blackout() {
     fetch('/blackout').then(() => updateStatus());
 }
+
+function saveSetup() {
+    // TODO: implementare salvataggio
+    console.log("Setup salvato (placeholder)");
+}
