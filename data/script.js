@@ -669,8 +669,8 @@ function clearLog() {
    ========================================================================== */
 function k(v) {
     const d = document.getElementById('cmd-display');
-    const off = document.getElementById('off-list').value;
-    const stp = parseInt(document.getElementById('off-step').value) || 1; // Recuperiamo lo step per il display locale
+    const off = document.getElementById('input-offset').value;
+    const stp = parseInt(document.getElementById('input-spacing').value) || 1; // Recuperiamo lo step per il display locale
 
 
 
@@ -723,8 +723,8 @@ if (v === 'ENT' || v.includes('ENT')) {
         if (!isCheckMode || currentCmd.trim() === "") return;
 
 
-        const off = document.getElementById('off-list').value;
-        const stp = parseInt(document.getElementById('off-step').value) || 1;
+        const off = document.getElementById('input-offset').value;
+        const stp = parseInt(document.getElementById('input-spacing').value) || 1;
         const multiplier = (v === 'NEXT') ? 1 : -1;
 
         // --- CALCOLO DEL JUMP (Ingombro + Spacing) ---
@@ -814,8 +814,8 @@ if (v === 'ENT' || v.includes('ENT')) {
 
 // Funzione di invio e registrazione Log
 let sendStandalone = function(offset, step) {
-    if(typeof offset === 'undefined') offset = document.getElementById('off-list').value;
-    if(typeof step === 'undefined') step = document.getElementById('off-step').value;
+    if(typeof offset === 'undefined') offset = document.getElementById('input-offset').value;
+    if(typeof step === 'undefined') step = document.getElementById('input-spacing').value;
     
     if(currentCmd.trim()) keypadLog.push({cmd: currentCmd.trim(), offset, step});
     
@@ -1113,3 +1113,88 @@ function handleSnapAction(id) {
             .catch(err => console.error("Errore fetch snap run:", err));
     }
 }
+
+
+// dropdown menu off e spacing 
+
+const state = {
+  offset: { presets: ['1', '1,4,5', '1,5,6', '1,2,3,4'], current: '1,5,6' },
+  spacing: { presets: ['1', '5', '10', '15'], current: '10' }
+};
+
+function renderList(type) {
+  const list = document.getElementById('list-' + type);
+  const s = state[type];
+  if (!s.presets.length) {
+    list.innerHTML = '<div class="empty-msg">Nessun preset salvato</div>';
+    return;
+  }
+  list.innerHTML = s.presets.map((p, i) => `
+    <div class="preset-item ${p === s.current ? 'selected' : ''}" onclick="selectPreset('${type}', '${p}')">
+      <span class="preset-val">${p}</span>
+      <button class="btn-del" onclick="event.stopPropagation(); deletePreset('${type}', ${i})">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/>
+      </svg>
+      </button>
+    </div>
+  `).join('');
+}
+
+function selectPreset(type, val) {
+  state[type].current = val;
+  document.getElementById('input-' + type).value = val;
+  closeAll();
+  renderList(type);
+}
+
+function deletePreset(type, idx) {
+  state[type].presets.splice(idx, 1);
+  renderList(type);
+}
+
+function addPreset(type) {
+  const inp = document.getElementById('add-' + type);
+  const val = inp.value.trim();
+  if (!val) return;
+  if (!state[type].presets.includes(val)) {
+    state[type].presets.push(val);
+  }
+  inp.value = '';
+  selectPreset(type, val);
+  renderList(type);
+}
+
+function toggleDropdown(type) {
+  const dd = document.getElementById('dd-' + type);
+  const btn = document.getElementById('btn-' + type);
+  const isOpen = dd.classList.contains('open');
+  closeAll();
+  if (!isOpen) {
+    dd.classList.add('open');
+    btn.classList.add('open');
+    renderList(type);
+    setTimeout(() => document.getElementById('add-' + type).focus(), 50);
+  }
+}
+
+function closeAll() {
+  ['offset', 'spacing'].forEach(t => {
+    document.getElementById('dd-' + t).classList.remove('open');
+    document.getElementById('btn-' + t).classList.remove('open');
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.field-wrap')) closeAll();
+});
+
+document.getElementById('add-offset').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addPreset('offset');
+});
+document.getElementById('add-spacing').addEventListener('keydown', e => {
+  if (e.key === 'Enter') addPreset('spacing');
+});
+
+renderList('offset');
+renderList('spacing');
