@@ -5,7 +5,6 @@
 #include <esp_dmx.h>
 #include "../config.h"
 
-// Dichiarazione del task
 void dmxTask(void *pvParameters);
 
 #endif
