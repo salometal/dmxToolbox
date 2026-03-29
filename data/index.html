@@ -105,7 +105,16 @@
                     </div>
 
                 </div>
-
+                <div style="margin: 0 0 2em 0;">
+                    <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">CURVA FADE</label>
+                    <select id="setup-fade-curve" style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
+                        <option value="0">Lineare</option>
+                        <option value="1">S-Curve</option>
+                        <option value="2">Equal Power</option>
+                        <option value="3">Logaritmica</option>
+                        <option value="4">Esponenziale</option>
+                    </select>
+                </div>
                 <button class="btn-extra" onclick="saveSetup()" 
                         style="width:100%; background:rgba(33,136,56,0.2); border:1px solid var(--success); color:var(--success);">
                     💾 SALVA IMPOSTAZIONI

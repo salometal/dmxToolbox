@@ -1326,11 +1326,13 @@ function saveSetup() {
     const soloLevelPct = document.getElementById('setup-solo-level').value;
     const blackoutAuto = document.getElementById('setup-blackout-auto').value;
     const autoSave    = document.getElementById('setup-autosave').checked ? "1" : "0";
+    const fadeCurve = document.getElementById('setup-fade-curve').value;
+    
 
     // Aggiorna soloLevel globale immediatamente
     soloLevel = Math.round(parseInt(soloLevelPct) * 2.55);
 
-    fetch(`/save_setup?fadesnap=${fadeSnap}&fademacro=${fadeMacro}&fadekeypad=${fadeKeypad}&sololevel=${soloLevelPct}&blackoutauto=${blackoutAuto}&autosave=${autoSave}`)
+    fetch(`/save_setup?fadesnap=${fadeSnap}&fademacro=${fadeMacro}&fadekeypad=${fadeKeypad}&sololevel=${soloLevelPct}&blackoutauto=${blackoutAuto}&autosave=${autoSave}&fadecurve=${fadeCurve}`)
         .then(r => r.text())
         .then(res => {
             if (res === "OK") console.log("Setup salvato");
@@ -1350,6 +1352,7 @@ function loadSetup() {
                 document.getElementById('setup-solo-level').value   = p[3];
                 document.getElementById('setup-blackout-auto').value = p[4];
                 document.getElementById('setup-autosave').checked   = p[5] === "1";
+                document.getElementById('setup-fade-curve').value = p[6];
                 
                 // Aggiorna soloLevel globale
                 soloLevel = Math.round(parseInt(p[3]) * 2.55);

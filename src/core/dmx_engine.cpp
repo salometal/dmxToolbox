@@ -9,6 +9,7 @@ extern bool dmxDriverInstalled;
 extern volatile SemaphoreHandle_t dmx_mutex;
 extern uint8_t *main_dmx_buffer;
 extern uint8_t *keypad_dmx_buffer;
+extern uint8_t *main_target_buffer;
 extern TaskHandle_t dmxTaskHandle;
 extern volatile int mutex_owner; 
 extern bool keypadModeEnabled;
@@ -151,4 +152,35 @@ void dmxTask(void *pvParameters) {
         }
     }
   }
+}
+void crossfadeTask(void *pvParameters) {
+    while (true) {
+        if (crossfadeActive && currentFadeTime > 0) {
+            float steps = (currentFadeTime * 1000.0f) / 20.0f;
+            float stepSize = 1.0f / steps;
+            
+            if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                crossfadeProgress += stepSize;
+                
+                if (crossfadeProgress >= 1.0f) {
+                    // Fade completato — copia target in main buffer
+                    crossfadeProgress = 1.0f;
+                    crossfadeActive = false;
+                    memcpy(main_dmx_buffer, main_target_buffer, 513);
+                } else {
+                    // Calcolo equal power crossfade
+                    float tA = sqrt(1.0f - crossfadeProgress);
+                    float tB = sqrt(crossfadeProgress);
+                    
+                    for (int i = 1; i <= 512; i++) {
+                        float valA = (float)crossfade_buffer_a[i] * tA;
+                        float valB = (float)main_target_buffer[i] * tB;
+                        main_dmx_buffer[i] = (uint8_t)constrain((int)(valA + valB), 0, 255);
+                    }
+                }
+                xSemaphoreGive(dmx_mutex);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
 }

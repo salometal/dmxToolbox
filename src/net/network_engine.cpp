@@ -664,6 +664,8 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             s += "|" + String((int)round(settings.soloLevel * 100.0 / 255.0));
             s += "|" + String(settings.blackoutAuto);
             s += "|" + String(settings.autoSave ? "1" : "0");
+            s += "|" + String(settings.autoSave ? "1" : "0");            
+            
             request->send(200, "text/plain", s);
         });
 
@@ -675,6 +677,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("sololevel"))   settings.soloLevel   = map(request->getParam("sololevel")->value().toInt(), 0, 100, 0, 255);
             if (request->hasParam("blackoutauto")) settings.blackoutAuto = request->getParam("blackoutauto")->value().toInt();
             if (request->hasParam("autosave"))    settings.autoSave    = (request->getParam("autosave")->value() == "1");
+            if (request->hasParam("fadecurve")) settings.fadeCurve = request->getParam("fadecurve")->value().toInt();
             
             saveConfiguration();
             request->send(200, "text/plain", "OK");

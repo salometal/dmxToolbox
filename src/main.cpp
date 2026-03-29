@@ -19,6 +19,7 @@ uint8_t packetBuffer[600];
 Config settings; 
 uint8_t *main_dmx_buffer = NULL; 
 uint8_t *keypad_dmx_buffer = NULL; // Dichiarazione buffer del keypad 
+uint8_t *main_target_buffer = NULL;
 volatile SemaphoreHandle_t dmx_mutex = NULL; 
 bool dmxDriverInstalled = false; 
 dmx_port_t dmxPort = 1; 
@@ -34,6 +35,14 @@ bool artnetConfirmed = false;
 bool sceneActive = false;
 bool preBlackoutRunning = false;
 
+
+float crossfadeProgress = 0.0f;
+bool crossfadeActive = false;
+uint8_t crossfade_buffer_a[513];
+float currentFadeTime = 0.0f;
+float keypadFadeProgress = 0.0f;
+uint8_t keypad_fade_start[513]; // snapshot al momento dell'avvio fade
+bool keypadFading = false;
 
 
 uint32_t lastPacketTime = 0;
@@ -138,6 +147,8 @@ void setup() {
     if (keypad_dmx_buffer != NULL) {
         memset(keypad_dmx_buffer, 0, 516 );
     } 
+    main_target_buffer = (uint8_t *)heap_caps_malloc(516, MALLOC_CAP_8BIT | MALLOC_CAP_INTERNAL);
+    if (main_target_buffer != NULL) memset(main_target_buffer, 0, 516);
 
     delay(1000);
 
@@ -226,7 +237,8 @@ if(LittleFS.begin(true)) {
     xTaskCreatePinnedToCore(dmxTask, "DMX_Core0", 8192, NULL, 15, &dmxTaskHandle, 0);
     vTaskDelay(pdMS_TO_TICKS(100));
     xTaskCreatePinnedToCore(networkTask, "Net_Core1", 8192, NULL, 3, &netTaskHandle, 1);
-    
+
+    //task fadein keypad
     xTaskCreatePinnedToCore(
     fadeTask,
     "fadeTask",
@@ -236,6 +248,16 @@ if(LittleFS.begin(true)) {
     NULL,
     1  // Core 1 — stesso del network
     );
+    //task crossfade 
+    xTaskCreatePinnedToCore(
+    crossfadeTask,
+    "crossfadeTask",
+    4096,
+    NULL,
+    1,
+    NULL,
+    1
+);
 
     Serial.println("--- SISTEMA PRONTO ---");
 }

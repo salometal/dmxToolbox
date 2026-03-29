@@ -47,6 +47,8 @@ struct Config {
     uint8_t blackoutAuto = 0;
     bool autoSave = false;
 
+    uint8_t fadeCurve = 1; // 0=Lineare, 1=S-Curve, 2=Equal Power, 3=Logaritmica, 4=Esponenziale
+
 };
 
 // --- VARIABILI GLOBALI (DICHIARAZIONI) ---
@@ -60,6 +62,14 @@ extern bool artnetConfirmed;
 extern bool sceneActive;
 extern uint32_t lastPacketTime;
 extern bool preBlackoutRunning;
+extern float crossfadeProgress;
+extern bool crossfadeActive;
+extern uint8_t crossfade_buffer_a[];
+extern float currentFadeTime;
+extern uint8_t *main_target_buffer;
+extern float keypadFadeProgress;
+extern uint8_t keypad_fade_start[];
+extern bool keypadFading;
 
 // AGGIUNGI QUESTI: Servono al loop() per gestire i task
 extern TaskHandle_t dmxTaskHandle;

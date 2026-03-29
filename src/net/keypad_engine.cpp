@@ -9,6 +9,9 @@ uint8_t keypad_target_buffer[513];
 extern volatile SemaphoreHandle_t dmx_mutex;
 extern volatile int mutex_owner;
 extern bool keypadModeEnabled;
+extern float keypadFadeProgress;
+extern uint8_t keypad_fade_start[];
+extern bool keypadFading;
 
 // STATO DEL SISTEMA (Persistente tra le chiamate)
 bool isSoloActive = false;
@@ -31,16 +34,15 @@ void executeFixture(int pivot, int valDMX, String offsets) {
         if (targetChan >= 1 && targetChan <= 512) {
             Serial.printf("  [DMX Out] Canale %d -> Valore %d\n", targetChan, valDMX);
             if (settings.fadeKeypad > 0) {
-                keypad_target_buffer[targetChan] = (uint8_t)valDMX; // ← scrive nel target
+                keypad_target_buffer[targetChan] = (uint8_t)valDMX;
             } else {
-                keypad_dmx_buffer[targetChan] = (uint8_t)valDMX; // ← istantaneo
+                keypad_dmx_buffer[targetChan] = (uint8_t)valDMX;
             }
         }
         ptrOff = strtok(NULL, ",");
     }
     free(copyOff);
 }
-
 /**
  * PARSER PRINCIPALE
  */
@@ -135,20 +137,30 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
             int atPos = cmd.indexOf(" AT ");
             bool isGroup = (cmd.indexOf("+") != -1 || cmd.indexOf(" THRU ") != -1);
 
-            if (isSoloActive) {
-                // --- MODALITÀ SOLO ---
+           if (isSoloActive) {
+    // --- MODALITÀ SOLO ---
                 if (atPos != -1) {
-                    // Cambio intensità selezione corrente
                     String strVal = cmd.substring(atPos + 4);
                     soloLevel = (strVal == "FULL") ? 255 : map(strVal.toInt(), 0, 100, 0, 255);
                     soloLevel = constrain(soloLevel, 0, 255);
                     
+                    // Snapshot per fade
+                    if (settings.fadeKeypad > 0) {
+                        memcpy(keypad_fade_start, keypad_dmx_buffer, 513);
+                        keypadFadeProgress = 0.0f;
+                        keypadFading = true;
+                    }
                     memset(keypad_dmx_buffer, 0, 513);
                     memset(keypad_target_buffer, 0, 513);
                     executeFixture(currentPivot, soloLevel, offsetStr);
                 } 
                 else if (isGroup || cmd.toInt() > 0) {
-                    // Nuova selezione in SOLO (Singola o Gruppo)
+                    // Snapshot per fade
+                    if (settings.fadeKeypad > 0) {
+                        memcpy(keypad_fade_start, keypad_dmx_buffer, 513);
+                        keypadFadeProgress = 0.0f;
+                        keypadFading = true;
+                    }
                     memset(keypad_dmx_buffer, 0, 513);
                     memset(keypad_target_buffer, 0, 513);
                     
@@ -161,16 +173,23 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
                     }
                     Serial.printf("[SOLO] Attivo Pivot: %d\n", currentPivot);
                 }
-            } 
+}
             else {
                 // --- MODALITÀ STANDARD (CHAN) ---
                 if (atPos != -1) {
-                    String strTutteFixture = cmd.substring(0, atPos);
-                    String strValore = cmd.substring(atPos + 4);
-                    int dmxVal = (strValore == "FULL") ? 255 : map(strValore.toInt(), 0, 100, 0, 255);
-                    
-                    parseAndExecuteGroups(strTutteFixture, constrain(dmxVal, 0, 255), offsetStr, spacing);
-                }
+                        String strTutteFixture = cmd.substring(0, atPos);
+                        String strValore = cmd.substring(atPos + 4);
+                        int dmxVal = (strValore == "FULL") ? 255 : map(strValore.toInt(), 0, 100, 0, 255);
+                        
+                        // Snapshot per fade
+                        if (settings.fadeKeypad > 0) {
+                            memcpy(keypad_fade_start, keypad_dmx_buffer, 513);
+                            keypadFadeProgress = 0.0f;
+                            keypadFading = true;
+                        }
+                        
+                        parseAndExecuteGroups(strTutteFixture, constrain(dmxVal, 0, 255), offsetStr, spacing);
+                    }
             }
         }
 
@@ -179,21 +198,53 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
         mutex_owner = 0;
     }
 }
-
 void fadeTask(void *pvParameters) {
     while (true) {
-        if (settings.fadeKeypad > 0 && keypadModeEnabled) {
-            // Calcola step per frame (20ms) per raggiungere target in fadeKeypad secondi
-            float steps = (settings.fadeKeypad * 1000.0f) / 20.0f; // numero di frame
+        bool shouldFade = keypadModeEnabled && keypadFading;
+
+        if (shouldFade) {
             
+            float fadeTime = (currentFadeTime > 0) ? currentFadeTime : settings.fadeKeypad;
+            float steps = (fadeTime * 1000.0f) / 20.0f;
+
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
-                for (int i = 1; i <= 512; i++) {
-                    if (keypad_dmx_buffer[i] != keypad_target_buffer[i]) {
-                        float diff = (float)keypad_target_buffer[i] - (float)keypad_dmx_buffer[i];
-                        float step = diff / steps;
-                        if (abs(step) < 1.0f) step = (diff > 0) ? 1.0f : -1.0f;
-                        int newVal = (int)keypad_dmx_buffer[i] + (int)step;
-                        keypad_dmx_buffer[i] = (uint8_t)constrain(newVal, 0, 255);
+                keypadFadeProgress += 1.0f / steps;
+                
+                if (keypadFadeProgress >= 1.0f) {
+                    keypadFadeProgress = 0.0f;
+                    currentFadeTime = 0.0f;
+                    keypadFading = false; // ← aggiunto
+                    memcpy(keypad_dmx_buffer, keypad_target_buffer, 513);
+                } else {
+                    float t = keypadFadeProgress;
+                    float tCurved;
+                    
+                    switch (settings.fadeCurve) {
+                        case 0: // Lineare
+                            tCurved = t;
+                            break;
+                        case 1: // S-Curve
+                            tCurved = t * t * (3.0f - 2.0f * t);
+                            break;
+                        case 2: // Equal Power
+                            tCurved = sqrt(t);
+                            break;
+                        case 3: // Logaritmica
+                            tCurved = log(1.0f + t * 9.0f) / log(10.0f);
+                            break;
+                        case 4: // Esponenziale
+                            tCurved = (pow(10.0f, t) - 1.0f) / 9.0f;
+                            break;
+                        default:
+                            tCurved = t;
+                    }
+                    
+                    for (int i = 1; i <= 512; i++) {
+                        float start = (float)keypad_fade_start[i];
+                        float target = (float)keypad_target_buffer[i];
+                        keypad_dmx_buffer[i] = (uint8_t)constrain(
+                            (int)(start + (target - start) * tCurved), 0, 255
+                        );
                     }
                 }
                 xSemaphoreGive(dmx_mutex);
