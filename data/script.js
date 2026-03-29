@@ -16,6 +16,7 @@ let currentSnapMode = 'LIST';
 let groupStart = 0;
 let groupEnd = 0;
 let groupStep = 1;
+let lastFaderVal = 0;
 
 document.addEventListener('touchmove', function(e) {
     if (e.touches.length > 1) e.preventDefault();
@@ -721,10 +722,17 @@ function k(v) {
 
         // 2. GESTIONE INVIO (ENT)
     if (v === 'ENT' || v.includes('ENT')) {
+        lastFaderVal = 0
+
         if (currentCmd.trim() !== "") {
             // 1. Salva la selezione pulita (senza AT) prima di aggiungere extra
             let atIdx = currentCmd.indexOf(" AT ");
+            if (atIdx !== -1) {
+                let strVal = currentCmd.substring(atIdx + 4).trim();
+                lastFaderVal = (strVal === "FULL") ? 100 : parseInt(strVal) || 0;
+            }
             let channelOnly = atIdx !== -1 ? currentCmd.substring(0, atIdx).trim() : currentCmd.trim();
+
 
             // 2. Componiamo il comando completo per il server (es. "1 AT 255")
             let extra = v.replace('ENT', '').trim();
@@ -1359,3 +1367,95 @@ function loadSetup() {
         })
         .catch(err => console.error("Errore loadSetup:", err));
 }
+
+//
+// FADER SETUP
+//
+
+// --- FADER ---
+let faderCmd = "";
+let faderOff = "1";
+let faderStp = 1;
+
+function openFader() {
+    if (currentCmd.trim() === "") return; // nessuna selezione attiva
+    
+    faderCmd = currentCmd.trim();
+    faderOff = document.getElementById('input-offset').value;
+    faderStp = parseInt(document.getElementById('input-spacing').value) || 1;
+    
+    // Mostra la selezione nel modal
+    document.getElementById('fader-selection').innerText = faderCmd;
+    
+    // Apri modal
+    const modal = document.getElementById('fader-modal');
+    modal.style.display = 'flex';
+    
+    // Inizializza fader a 0
+    setFaderVal(lastFaderVal);
+    
+    // Aggiungi eventi touch/mouse
+    initFaderEvents();
+}
+
+function closeFader() {
+    lastFaderVal = parseInt(document.getElementById('fader-value').innerText) || 0;
+    document.getElementById('fader-modal').style.display = 'none';
+    removeFaderEvents();
+}
+
+let faderThrottle = null;
+
+function setFaderVal(v) {
+    v = Math.round(Math.max(0, Math.min(100, v)));
+    document.getElementById('fader-value').innerText = v;
+    
+    const track = document.getElementById('fader-track');
+    const fill = document.getElementById('fader-fill');
+    const thumb = document.getElementById('fader-thumb');
+    const trackH = track.clientHeight - 8;
+    
+    fill.style.height = (v / 100 * trackH) + 'px';
+    thumb.style.bottom = (v / 100 * trackH - 12) + 'px';
+    
+    // Throttle fetch
+    if (faderThrottle) return;
+    faderThrottle = setTimeout(() => {
+        fetch(`/fader?cmd=${encodeURIComponent(faderCmd)}&val=${v}&offsets=${faderOff}&step=${faderStp}`);
+        faderThrottle = null;
+    }, 30);
+}
+
+function getFaderValFromEvent(e) {
+    const track = document.getElementById('fader-track');
+    const rect = track.getBoundingClientRect();
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    const relY = rect.bottom - clientY;
+    return (relY / rect.height) * 100;
+}
+
+let faderDragging = false;
+
+function initFaderEvents() {
+    const track = document.getElementById('fader-track');
+    track.addEventListener('mousedown', faderMouseDown);
+    document.addEventListener('mousemove', faderMouseMove);
+    document.addEventListener('mouseup', faderMouseUp);
+    track.addEventListener('touchstart', faderTouchStart, { passive: false });
+    track.addEventListener('touchmove', faderTouchMove, { passive: false });
+}
+
+function removeFaderEvents() {
+    const track = document.getElementById('fader-track');
+    track.removeEventListener('mousedown', faderMouseDown);
+    document.removeEventListener('mousemove', faderMouseMove);
+    document.removeEventListener('mouseup', faderMouseUp);
+    track.removeEventListener('touchstart', faderTouchStart);
+    track.removeEventListener('touchmove', faderTouchMove);
+}
+
+function faderMouseDown(e) { faderDragging = true; setFaderVal(getFaderValFromEvent(e)); }
+function faderMouseMove(e) { if (faderDragging) setFaderVal(getFaderValFromEvent(e)); }
+function faderMouseUp() { faderDragging = false; }
+function faderTouchStart(e) { e.preventDefault(); setFaderVal(getFaderValFromEvent(e)); }
+function faderTouchMove(e) { e.preventDefault(); setFaderVal(getFaderValFromEvent(e)); }

@@ -674,7 +674,23 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             saveConfiguration();
             request->send(200, "text/plain", "OK");
         });
-
+            server.on("/fader", HTTP_GET, [](AsyncWebServerRequest *request){
+                String cmd = request->hasParam("cmd") ? request->getParam("cmd")->value() : "";
+                String val = request->hasParam("val") ? request->getParam("val")->value() : "0";
+                String off = request->hasParam("offsets") ? request->getParam("offsets")->value() : "1";
+                int stp = request->hasParam("step") ? request->getParam("step")->value().toInt() : 1;
+                
+                if (cmd.length() > 0) {
+                    String fullCmd = cmd + " AT " + val;
+                    keypadFading = false;
+                    float savedFade = settings.fadeKeypad;
+                    settings.fadeKeypad = 0;
+                    processStandaloneCommand(fullCmd, "", off, stp);
+                    settings.fadeKeypad = savedFade;
+                }
+                
+                request->send(200, "text/plain", "OK");
+            });
     server.on("/factoryreset", HTTP_GET, [](AsyncWebServerRequest *request){
         memset(settings.ssid, 0, sizeof(settings.ssid));
         memset(settings.pass, 0, sizeof(settings.pass));
