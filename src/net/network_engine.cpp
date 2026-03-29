@@ -533,20 +533,12 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         });
 
         server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
-            int id = request->getParam("id")->value().toInt();
-            File f = LittleFS.open("/s" + String(id) + ".dat", "r");
-            
-            if (f) {
-                if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                    f.read(main_dmx_buffer, 513);
-                    f.close();
-                    sceneActive = true;           // ← attiva override
-                    settings.isRunning = false;   // ← ferma modalità attiva
-                    xSemaphoreGive(dmx_mutex);
-                    request->send(200, "text/plain", "OK");
-                }
+            if (request->hasParam("id")) {
+                int id = request->getParam("id")->value().toInt();
+                runSnap(id); // ← usa scene_manager con crossfade
+                request->send(200, "text/plain", "OK");
             } else {
-                request->send(404, "text/plain", "FILE_NOT_FOUND");
+                request->send(400, "text/plain", "ERR_ID");
             }
         });
 

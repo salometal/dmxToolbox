@@ -65,6 +65,8 @@ void runSnap(int id) {
             f.close();
             currentFadeTime = settings.fadeSnap;
             crossfadeProgress = 0.0f;
+            Serial.printf("[SNAP] Avvio crossfade: fadeSnap=%.1f\n", settings.fadeSnap);
+
             crossfadeActive = true;
             sceneActive = true;
             settings.isRunning = false;

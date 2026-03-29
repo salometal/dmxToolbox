@@ -1064,7 +1064,6 @@ if (currentMacroMode === 'SAVE') {
             .then(res => {
                 if (res === "OK") {
                     console.log(`Esecuzione Macro ${id}`);
-                    closeMacroModal();
                     // Feedback opzionale sul display del keypad
                     document.getElementById('cmd-display').innerText = `LOAD M${id+1}...`;
                     setTimeout(() => {
@@ -1168,7 +1167,7 @@ function handleSnapAction(id) {
             .then(res => {
                 if (res === "OK") {
                     console.log(`Richiamo Snapshot ${id}`);
-                    closeSnapModal();
+                    
                     // Feedback opzionale nell'interfaccia
                 } else {
                     alert("Errore caricamento Snap: " + res);

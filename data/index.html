@@ -386,7 +386,7 @@ KEYPAD MODE STANDALONE
     </div>
 </div>
 <!--Modal macro view -->
-<div id="macro-modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;">
+<div id="macro-modal" style="display:none; position:fixed; z-index:1000; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.85); align-items:center; justify-content:center;" onclick="if(event.target===this) closeMacroModal()">
     <div class="card" style="display:block; width:90%; max-width:400px; margin:0; border: 1px solid var(--accent);">
         <h2 id="macro-title" style="display:flex; justify-content:space-between; align-items:center;">
             MACRO LIST
@@ -408,11 +408,11 @@ KEYPAD MODE STANDALONE
 </div>
 
 <!--Modal Snap view -->
-<div id="snap-modal" style="display:none; position:fixed; z-index:1100; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); align-items:center; justify-content:center;">
+<div id="snap-modal" style="display:none; position:fixed; z-index:1100; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.9); align-items:center; justify-content:center;" onclick="if(event.target===this) closeSnapModal()">
     <div class="card" style="display:block; width:90%; max-width:400px; margin:0; border: 1px solid var(--danger);">
         <h2 id="snap-title" style="display:flex; justify-content:space-between; align-items:center;">
             SNAP LIST 📸
-            <span onclick="closeSnapModal()" style="cursor:pointer; color:var(--danger); font-size:2rem;">&times;</span>
+            <spa    n onclick="closeSnapModal()" style="cursor:pointer; color:var(--danger); font-size:2rem;">&times;</span>
         </h2>
         
         <div id="snap-save-ui" style="display:none; background: #1a0a0a; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px dashed #ff4444;">

@@ -156,6 +156,8 @@ void dmxTask(void *pvParameters) {
 void crossfadeTask(void *pvParameters) {
     while (true) {
         if (crossfadeActive && currentFadeTime > 0) {
+                        Serial.printf("[CROSSFADE] Progress: %.2f fadeTime: %.1f\n", crossfadeProgress, currentFadeTime);
+
             float steps = (currentFadeTime * 1000.0f) / 20.0f;
             float stepSize = 1.0f / steps;
             
@@ -167,17 +169,27 @@ void crossfadeTask(void *pvParameters) {
                     crossfadeProgress = 1.0f;
                     crossfadeActive = false;
                     memcpy(main_dmx_buffer, main_target_buffer, 513);
-                } else {
-                    // Calcolo equal power crossfade
-                    float tA = sqrt(1.0f - crossfadeProgress);
-                    float tB = sqrt(crossfadeProgress);
-                    
-                    for (int i = 1; i <= 512; i++) {
-                        float valA = (float)crossfade_buffer_a[i] * tA;
-                        float valB = (float)main_target_buffer[i] * tB;
-                        main_dmx_buffer[i] = (uint8_t)constrain((int)(valA + valB), 0, 255);
-                    }
-                }
+                }  else {
+            float t = crossfadeProgress;
+            float tCurved;
+            
+            switch (settings.fadeCurve) {
+                case 0: tCurved = t; break;
+                case 1: tCurved = t * t * (3.0f - 2.0f * t); break;
+                case 2: tCurved = sqrt(t); break;
+                case 3: tCurved = log(1.0f + t * 9.0f) / log(10.0f); break;
+                case 4: tCurved = (pow(10.0f, t) - 1.0f) / 9.0f; break;
+                default: tCurved = t;
+            }
+            
+            for (int i = 1; i <= 512; i++) {
+                float start = (float)crossfade_buffer_a[i];
+                float target = (float)main_target_buffer[i];
+                main_dmx_buffer[i] = (uint8_t)constrain(
+                    (int)(start + (target - start) * tCurved), 0, 255
+                );
+            }
+        }
                 xSemaphoreGive(dmx_mutex);
             }
         }
