@@ -656,7 +656,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             s += "|" + String((int)round(settings.soloLevel * 100.0 / 255.0));
             s += "|" + String(settings.blackoutAuto);
             s += "|" + String(settings.autoSave ? "1" : "0");
-            s += "|" + String(settings.autoSave ? "1" : "0");            
+            s += "|" + String(settings.fadeCurve);             
             
             request->send(200, "text/plain", s);
         });
