@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleIPFields();
     autoPopulateWifi();
     loadPresetsFromESP();
+    loadSetup();
 
 
 
@@ -891,11 +892,18 @@ function toggleKeypadMode() {
     console.log("Keypad Mode richiesto:", isChecked ? "ON" : "OFF");
 
     if (!isChecked) {
-        // --- STATO DISATTIVATO ---
         currentCmd = ""; 
-        display.innerText = "OFF";
+        // Reset solo mode
+        if (isCheckMode) {
+            isCheckMode = false;
+            const btn = document.getElementById('btn-check-mode');
+            if (btn) btn.classList.remove('active');
+            fetch('/standalone?type=SOLO'); // manda SOLO OFF al C++
+        }
+         display.innerText = "OFF";
         display.style.color = "#ff4444"; // Rosso per pericolo/spento
         display.style.opacity = "0.5";   // Leggermente trasparente
+        
 
     } else {
         // --- STATO ATTIVATO ---
@@ -1312,6 +1320,40 @@ function blackout() {
 }
 
 function saveSetup() {
-    // TODO: implementare salvataggio
-    console.log("Setup salvato (placeholder)");
+    const fadeSnap    = document.getElementById('setup-fade-snap').value;
+    const fadeMacro   = document.getElementById('setup-fade-macro').value;
+    const fadeKeypad  = document.getElementById('setup-fade-keypad').value;
+    const soloLevelPct = document.getElementById('setup-solo-level').value;
+    const blackoutAuto = document.getElementById('setup-blackout-auto').value;
+    const autoSave    = document.getElementById('setup-autosave').checked ? "1" : "0";
+
+    // Aggiorna soloLevel globale immediatamente
+    soloLevel = Math.round(parseInt(soloLevelPct) * 2.55);
+
+    fetch(`/save_setup?fadesnap=${fadeSnap}&fademacro=${fadeMacro}&fadekeypad=${fadeKeypad}&sololevel=${soloLevelPct}&blackoutauto=${blackoutAuto}&autosave=${autoSave}`)
+        .then(r => r.text())
+        .then(res => {
+            if (res === "OK") console.log("Setup salvato");
+        })
+        .catch(err => console.error("Errore saveSetup:", err));
+}
+
+function loadSetup() {
+    fetch('/get_setup')
+        .then(r => r.text())
+        .then(data => {
+            const p = data.split("|");
+            if (p.length >= 6) {
+                document.getElementById('setup-fade-snap').value    = p[0];
+                document.getElementById('setup-fade-macro').value   = p[1];
+                document.getElementById('setup-fade-keypad').value  = p[2];
+                document.getElementById('setup-solo-level').value   = p[3];
+                document.getElementById('setup-blackout-auto').value = p[4];
+                document.getElementById('setup-autosave').checked   = p[5] === "1";
+                
+                // Aggiorna soloLevel globale
+                soloLevel = Math.round(parseInt(p[3]) * 2.55);
+            }
+        })
+        .catch(err => console.error("Errore loadSetup:", err));
 }

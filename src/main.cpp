@@ -16,7 +16,7 @@ AsyncWebServer server(80);
 WiFiUDP udp;
 uint8_t packetBuffer[600];
 //uint8_t *packetBuffer = NULL;
-Config settings = {0}; 
+Config settings; 
 uint8_t *main_dmx_buffer = NULL; 
 uint8_t *keypad_dmx_buffer = NULL; // Dichiarazione buffer del keypad 
 volatile SemaphoreHandle_t dmx_mutex = NULL; 
@@ -226,6 +226,16 @@ if(LittleFS.begin(true)) {
     xTaskCreatePinnedToCore(dmxTask, "DMX_Core0", 8192, NULL, 15, &dmxTaskHandle, 0);
     vTaskDelay(pdMS_TO_TICKS(100));
     xTaskCreatePinnedToCore(networkTask, "Net_Core1", 8192, NULL, 3, &netTaskHandle, 1);
+    
+    xTaskCreatePinnedToCore(
+    fadeTask,
+    "fadeTask",
+    4096,
+    NULL,
+    1,
+    NULL,
+    1  // Core 1 — stesso del network
+    );
 
     Serial.println("--- SISTEMA PRONTO ---");
 }

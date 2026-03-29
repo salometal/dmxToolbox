@@ -656,6 +656,30 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             request->send(200, "text/plain", "OK");
         });
 
+        // --- ROTTA GET SETUP ---
+        server.on("/get_setup", HTTP_GET, [](AsyncWebServerRequest *request){
+            String s = String(settings.fadeSnap);
+            s += "|" + String(settings.fadeMacro);
+            s += "|" + String(settings.fadeKeypad);
+            s += "|" + String((int)round(settings.soloLevel * 100.0 / 255.0));
+            s += "|" + String(settings.blackoutAuto);
+            s += "|" + String(settings.autoSave ? "1" : "0");
+            request->send(200, "text/plain", s);
+        });
+
+        // --- ROTTA SAVE SETUP ---
+        server.on("/save_setup", HTTP_GET, [](AsyncWebServerRequest *request){
+            if (request->hasParam("fadesnap"))    settings.fadeSnap    = request->getParam("fadesnap")->value().toFloat();
+            if (request->hasParam("fademacro"))   settings.fadeMacro   = request->getParam("fademacro")->value().toFloat();
+            if (request->hasParam("fadekeypad"))  settings.fadeKeypad  = request->getParam("fadekeypad")->value().toFloat();
+            if (request->hasParam("sololevel"))   settings.soloLevel   = map(request->getParam("sololevel")->value().toInt(), 0, 100, 0, 255);
+            if (request->hasParam("blackoutauto")) settings.blackoutAuto = request->getParam("blackoutauto")->value().toInt();
+            if (request->hasParam("autosave"))    settings.autoSave    = (request->getParam("autosave")->value() == "1");
+            
+            saveConfiguration();
+            request->send(200, "text/plain", "OK");
+        });
+
     server.on("/factoryreset", HTTP_GET, [](AsyncWebServerRequest *request){
         memset(settings.ssid, 0, sizeof(settings.ssid));
         memset(settings.pass, 0, sizeof(settings.pass));

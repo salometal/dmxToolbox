@@ -40,6 +40,13 @@ struct Config {
     char macros[10][64];    // 640 byte 
     char snapNames[10][16]; // 160 byte 
 
+    float fadeSnap = 0;
+    float fadeMacro = 0;
+    float fadeKeypad = 0;
+    uint8_t soloLevel = 178;
+    uint8_t blackoutAuto = 0;
+    bool autoSave = false;
+
 };
 
 // --- VARIABILI GLOBALI (DICHIARAZIONI) ---

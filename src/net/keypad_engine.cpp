@@ -3,35 +3,38 @@
 #include "config.h"
 // Riferimenti esterni
 extern uint8_t *keypad_dmx_buffer;
+// Buffer target per il fade
+uint8_t keypad_target_buffer[513];
+
 extern volatile SemaphoreHandle_t dmx_mutex;
 extern volatile int mutex_owner;
+extern bool keypadModeEnabled;
 
 // STATO DEL SISTEMA (Persistente tra le chiamate)
 bool isSoloActive = false;
 String lastGroupCmd = "";
 int currentPivot = 1;
-int soloLevel = 178; // Default 70% (178/255)
+int soloLevel = settings.soloLevel; 
 
 /**
  * FUNZIONE CORE: Applica l'intensità a un Pivot + i suoi Offsets
  * Qui è dove avviene il calcolo DMX "Ibrido"
  */
 void executeFixture(int pivot, int valDMX, String offsets) {
-    // Calcolo base del primo canale (es. Pivot 11 con Spacing 10 -> Canale 101 se ragionassimo a fixture, 
-    // ma tu ragioni su base pivot + offset)
-    
-    // Split degli offsets (1, 2, 5...)
     char* copyOff = strdup(offsets.c_str());
     char* ptrOff = strtok(copyOff, ",");
     
     while (ptrOff != NULL) {
         int offVal = atoi(ptrOff);
-        int targetChan = pivot + (offVal - 1); // Ragionamento ibrido
+        int targetChan = pivot + (offVal - 1);
         
         if (targetChan >= 1 && targetChan <= 512) {
-            // Per ora solo Serial, ma pronta per il buffer
             Serial.printf("  [DMX Out] Canale %d -> Valore %d\n", targetChan, valDMX);
-            keypad_dmx_buffer[targetChan] = (uint8_t)valDMX; 
+            if (settings.fadeKeypad > 0) {
+                keypad_target_buffer[targetChan] = (uint8_t)valDMX; // ← scrive nel target
+            } else {
+                keypad_dmx_buffer[targetChan] = (uint8_t)valDMX; // ← istantaneo
+            }
         }
         ptrOff = strtok(NULL, ",");
     }
@@ -97,9 +100,10 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
         // 2. CHECK TASTI RAPIDI (CLEAR / SOLO)
         if (type == "CLEAR") {
             
-            lastGroupCmd = "";      // <--- Questo resetta la memoria per il NEXT
-            currentPivot = 1;       // <--- Questo riporta il puntatore all'inizio
+            lastGroupCmd = "";
+            currentPivot = 1;
             memset(keypad_dmx_buffer, 0, 513);
+            memset(keypad_target_buffer, 0, 513); // ← aggiunto
             Serial.println("[SYSTEM] Blackout & Clear Totale");
             xSemaphoreGive(dmx_mutex);
             mutex_owner = 0;
@@ -108,7 +112,7 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
 
         if (type == "SOLO") {
             isSoloActive = !isSoloActive;
-            soloLevel = 178; // Reset 70%
+            soloLevel = settings.soloLevel; // Reset 70%
             Serial.printf("[SYSTEM] Modalità SOLO: %s\n", isSoloActive ? "ON" : "OFF");
             xSemaphoreGive(dmx_mutex);
             mutex_owner = 0;
@@ -119,6 +123,7 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
         if ((type == "NEXT" || type == "LAST") && isSoloActive) {
             if (cmd != "") {
                 memset(keypad_dmx_buffer, 0, 513);
+                memset(keypad_target_buffer, 0, 513);
                 parseAndExecuteGroups(cmd, soloLevel, offsetStr, spacing);
             }
             xSemaphoreGive(dmx_mutex);
@@ -139,11 +144,13 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
                     soloLevel = constrain(soloLevel, 0, 255);
                     
                     memset(keypad_dmx_buffer, 0, 513);
+                    memset(keypad_target_buffer, 0, 513);
                     executeFixture(currentPivot, soloLevel, offsetStr);
                 } 
                 else if (isGroup || cmd.toInt() > 0) {
                     // Nuova selezione in SOLO (Singola o Gruppo)
                     memset(keypad_dmx_buffer, 0, 513);
+                    memset(keypad_target_buffer, 0, 513);
                     
                     if (isGroup) {
                         parseAndExecuteGroups(cmd, soloLevel, offsetStr, spacing);
@@ -173,3 +180,25 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
     }
 }
 
+void fadeTask(void *pvParameters) {
+    while (true) {
+        if (settings.fadeKeypad > 0 && keypadModeEnabled) {
+            // Calcola step per frame (20ms) per raggiungere target in fadeKeypad secondi
+            float steps = (settings.fadeKeypad * 1000.0f) / 20.0f; // numero di frame
+            
+            if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                for (int i = 1; i <= 512; i++) {
+                    if (keypad_dmx_buffer[i] != keypad_target_buffer[i]) {
+                        float diff = (float)keypad_target_buffer[i] - (float)keypad_dmx_buffer[i];
+                        float step = diff / steps;
+                        if (abs(step) < 1.0f) step = (diff > 0) ? 1.0f : -1.0f;
+                        int newVal = (int)keypad_dmx_buffer[i] + (int)step;
+                        keypad_dmx_buffer[i] = (uint8_t)constrain(newVal, 0, 255);
+                    }
+                }
+                xSemaphoreGive(dmx_mutex);
+            }
+        }
+        vTaskDelay(pdMS_TO_TICKS(20));
+    }
+}
