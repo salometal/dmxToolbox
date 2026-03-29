@@ -122,16 +122,22 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
         }
 
             // 3. CHECK NAVIGAZIONE (NEXT/LAST in SOLO)
-        if ((type == "NEXT" || type == "LAST") && isSoloActive) {
-            if (cmd != "") {
-                memset(keypad_dmx_buffer, 0, 513);
-                memset(keypad_target_buffer, 0, 513);
-                parseAndExecuteGroups(cmd, soloLevel, offsetStr, spacing);
+            if ((type == "NEXT" || type == "LAST") && isSoloActive) {
+                if (cmd != "") {
+                    // Snapshot per fade
+                    if (settings.fadeKeypad > 0) {
+                        memcpy(keypad_fade_start, keypad_dmx_buffer, 513);
+                        keypadFadeProgress = 0.0f;
+                        keypadFading = true;
+                    }
+                    memset(keypad_dmx_buffer, 0, 513);
+                    memset(keypad_target_buffer, 0, 513);
+                    parseAndExecuteGroups(cmd, soloLevel, offsetStr, spacing);
+                }
+                xSemaphoreGive(dmx_mutex);
+                mutex_owner = 0;
+                return;
             }
-            xSemaphoreGive(dmx_mutex);
-            mutex_owner = 0;
-            return;
-        }
         // 4. PARSING STRINGA COMANDO
         if (cmd != "") {
             int atPos = cmd.indexOf(" AT ");
