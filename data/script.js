@@ -17,6 +17,15 @@ let groupStart = 0;
 let groupEnd = 0;
 let groupStep = 1;
 
+document.addEventListener('touchmove', function(e) {
+    if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+document.addEventListener('gesturestart', function(e) {
+    e.preventDefault();
+});
+document.addEventListener('gesturechange', function(e) {
+    e.preventDefault();
+});
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log("DOM Caricato. Inizializzazione...");
@@ -719,9 +728,6 @@ function k(v) {
             // 2. Componiamo il comando completo per il server (es. "1 AT 255")
             let extra = v.replace('ENT', '').trim();
             if (extra) currentCmd += " " + extra; 
-            
-            // 3. Invio al C++
-            sendStandalone(); 
 
             // Rileva gruppo THRU in Solo Mode
             if (isCheckMode && channelOnly.indexOf(" THRU ") !== -1) {
@@ -729,8 +735,15 @@ function k(v) {
                 groupStart = parseInt(thruParts[0].trim());
                 groupEnd = parseInt(thruParts[1].trim());
                 groupStep = parseInt(document.getElementById('input-spacing').value) || 1;
-                channelOnly = String(groupStart); // ← aggiorna channelOnly, non currentCmd
-            }
+                channelOnly = String(groupStart);
+                currentCmd = channelOnly; // ← aggiunto
+                console.log("CMD prima di sendStandalone: nel ciclo", currentCmd);
+
+            }           
+console.log("CMD prima di sendStandalone: fuori dal ciclo ", currentCmd);
+
+            // 3. Invio al C++
+            sendStandalone();
 
             // 4. Gestione Display post-invio
             if (isCheckMode) {
@@ -794,8 +807,12 @@ if (v === 'NEXT' || v === 'LAST') {
     let intNumbers = numbersOnly.map(Number);
     let minID = Math.min(...intNumbers);
     let maxID = Math.max(...intNumbers);
-    let jump = (maxID - minID) + stp;
-    let offsetAmount = (v === 'NEXT' ? 1 : -1) * jump;
+        let jump;
+        if (selectionPart.indexOf(" THRU ") !== -1) {
+            jump = (maxID - minID) + stp;
+        } else {
+            jump = stp;
+        }    let offsetAmount = (v === 'NEXT' ? 1 : -1) * jump;
 
     let parts = selectionPart.trim().split(/(\+|\-|THRU|AT|FULL|OFF)/i);
     let newParts = parts.map(part => {
