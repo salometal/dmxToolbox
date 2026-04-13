@@ -1,5 +1,6 @@
 
 #include "dmx_engine.h" 
+#include"../hw/hw_manager.h"
 #include <esp_dmx.h>
 #include <esp_task_wdt.h>
 
@@ -13,6 +14,7 @@ extern uint8_t *main_target_buffer;
 extern TaskHandle_t dmxTaskHandle;
 extern volatile int mutex_owner; 
 extern bool keypadModeEnabled;
+
 
 // Aggiungiamo il riferimento alla funzione di invio (che deve essere in un .h o sopra il task)
 void sendArtDmx(uint16_t universe, uint8_t* dmxData);
@@ -56,7 +58,10 @@ void dmxTask(void *pvParameters) {
         // CASO KEYPAD ATTIVO (Override Totale)
         // ==========================================================
 
-        if (keypadModeEnabled) {
+
+if (keypadModeEnabled) {
+
+
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                 memcpy(local_buffer, keypad_dmx_buffer, DMX_PACKET_SIZE);
                 xSemaphoreGive(dmx_mutex); 
@@ -89,7 +94,10 @@ void dmxTask(void *pvParameters) {
         // --- LOGICA DMX ---
         if (settings.mode == 0) { 
             // MODO 0: RICEZIONE (DMX -> ARTNET)
+
                 if (lastPinMode != 0) {
+                        setRelay(RELAY_ON);
+                        Serial.println("relay ON");
                         dmx_set_pin(dmxPort, DMX_TX_PIN, DMX_RX_PIN, -1);
                         lastPinMode = 0;
                         Serial.println("[DMX] Pin RX abilitato per Modo 0");
@@ -97,6 +105,7 @@ void dmxTask(void *pvParameters) {
             dmx_packet_t packet;
             // Aspettiamo il pacchetto fisico in ingresso
             if (dmx_receive(dmxPort, &packet, pdMS_TO_TICKS(100))) {
+                // Serial.println("[DMX] Pacchetto ricevuto!");
                 if (packet.err == DMX_OK) {
                     if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                         dmx_read(dmxPort, main_dmx_buffer, DMX_PACKET_SIZE);
@@ -118,6 +127,9 @@ void dmxTask(void *pvParameters) {
         else {
             // MODO 1: INVIO (ART-NET o STANDALONE -> DMX)
                 if (lastPinMode != 1) {
+                        setRelay(RELAY_OFF);
+                        Serial.println("RELAY off");
+
                         dmx_set_pin(dmxPort, DMX_TX_PIN, -1, -1);
                         lastPinMode = 1;
                         Serial.println("[DMX] Pin RX disabilitato per Modo 1");

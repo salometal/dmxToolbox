@@ -7,7 +7,11 @@
 
 // --- PIN HARDWARE FISSI ---
 #define DMX_TX_PIN 17 
-#define DMX_RX_PIN 16 
+#define DMX_RX_PIN 16
+#define LED_PIN 4        // WS2812B
+#define BTN_PIN 25      // Pulsante reset
+#define RELAY_PIN 22     // Relè DPDT
+#define RELAY_PIN2 32
 
 // --- COSTANTI ---
 #define DMX_CHANNELS DMX_PACKET_SIZE
@@ -70,6 +74,7 @@ extern uint8_t *main_target_buffer;
 extern float keypadFadeProgress;
 extern uint8_t keypad_fade_start[];
 extern bool keypadFading;
+extern bool keypadRelaySet;
 
 // AGGIUNGI QUESTI: Servono al loop() per gestire i task
 extern TaskHandle_t dmxTaskHandle;

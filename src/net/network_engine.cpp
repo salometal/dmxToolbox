@@ -9,6 +9,7 @@
 #include "config.h"
 #include "artnet.h" // Inclusione per usare sendArtDmx e readArtDmx
 #include "keypad_logic.h"
+#include"../hw/hw_manager.h"
 #include "lwip/udp.h"
 
 // Riferimenti esterni definiti nel Main
@@ -150,7 +151,7 @@ void saveConfiguration() {
     } else {
         Serial.println("[FS] Errore in scrittura config!");
     }
-    if (dmxDriverInstalled) dmx_driver_enable(dmxPort);
+    // if (dmxDriverInstalled) dmx_driver_enable(dmxPort);
 }
 
 // --- CONFIGURAZIONE WEB SERVER (Chiamata una sola volta) ---
@@ -219,7 +220,9 @@ server.on("/standalone", HTTP_GET, [](AsyncWebServerRequest *request) {
         settings.refreshRate = request->getParam("r")->value().toInt(); // Riceve "44", "40", valori in Hz .
         }
 
-
+        if (settings.isRunning) {
+            setRelay(RELAY_ON); // DMX IN attivo + thru
+        } 
  // --- SALVATAGGIO CONFIGURAZIONE ---
         saveConfiguration(); // 
 
@@ -260,12 +263,15 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
     }
         
         if (requestedRun) {
+                setRelay(RELAY_OFF); // ← ArtNet IN attivo
+  
             artnetConfirmed = false; // reset conferma al nuovo avvio
             udpActive = false;       // forza riapertura socket pulita
             settings.isRunning = true;
             Serial.println("[WEB] Art-Net IN: avvio ricerca...");
             request->send(200, "text/plain", "OK_START");
         } else {
+                setRelay(RELAY_ON); // ← torna in thru
             settings.isRunning = false;
             artnetConfirmed = false; // reset anche allo stop
             udpActive = false;
@@ -462,23 +468,26 @@ server.on("/keypad_toggle", HTTP_GET, [](AsyncWebServerRequest *request){
         if (requestedState && !keypadModeEnabled) {
             wasRunningBeforeKeypad = settings.isRunning; // Snapshot PRIMA di forzare
             settings.isRunning = true; 
-            
+            setRelay(RELAY_OFF);
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                 memset(keypad_dmx_buffer, 0, 513);
                 keypadModeEnabled = true; // Attiviamo l'override sotto Mutex
                 xSemaphoreGive(dmx_mutex);
                 Serial.println("[SYSTEM] Keypad Mode: ATTIVATO");
+           
             }
         } 
         // 2. Logica di DISATTIVAZIONE (da ON a OFF)
         else if (!requestedState && keypadModeEnabled) {
+             setRelay(RELAY_ON);
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                 memset(keypad_dmx_buffer, 0, 513);
                 keypadModeEnabled = false; // Rilasciamo l'override sotto Mutex
                 xSemaphoreGive(dmx_mutex);
-                
+                  
                 settings.isRunning = wasRunningBeforeKeypad; // Ripristino lo stato originale
                 Serial.println("[SYSTEM] Keypad Mode: DISATTIVATO");
+          
             }
         }
 
