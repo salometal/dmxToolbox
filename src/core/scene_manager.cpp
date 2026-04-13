@@ -49,7 +49,10 @@ void saveSnap(int id, const char* name) {
     File f = LittleFS.open("/s" + String(id) + ".dat", "w");
     if (f) {
         if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            f.write(main_dmx_buffer, 513);
+            Serial.printf("[SAVE_SNAP] Canale 1: %d, Canale 2: %d, Canale 3: %d\n",
+                         main_dmx_buffer[1], main_dmx_buffer[2], main_dmx_buffer[3]);
+            int written = f.write(main_dmx_buffer, 513);
+            Serial.printf("[SAVE_SNAP] Bytes scritti: %d\n", written);
             xSemaphoreGive(dmx_mutex);
             f.close();
         }
@@ -57,20 +60,37 @@ void saveSnap(int id, const char* name) {
 }
 
 void runSnap(int id) {
-    File f = LittleFS.open("/s" + String(id) + ".dat", "r");
+    String fileName = "/s" + String(id) + ".dat";
+    Serial.printf("[SNAP] Cerco file: %s\n", fileName.c_str());
+    Serial.printf("[SNAP] File esiste: %d\n", LittleFS.exists(fileName));
+    
+    File f = LittleFS.open(fileName, "r");
     if (f) {
+        Serial.printf("[SNAP] File aperto, size: %d\n", f.size());
         if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-            memcpy(crossfade_buffer_a, main_dmx_buffer, 513);
-            f.read(main_target_buffer, 513);
+            int bytesRead = f.read(main_target_buffer, 513);
+            Serial.printf("[SNAP] Bytes letti: %d\n", bytesRead);
+            Serial.printf("[SNAP] Canale 1: %d, Canale 2: %d, Canale 3: %d\n", 
+                         main_target_buffer[1], main_target_buffer[2], main_target_buffer[3]);
             f.close();
-            currentFadeTime = settings.fadeSnap;
-            crossfadeProgress = 0.0f;
-            Serial.printf("[SNAP] Avvio crossfade: fadeSnap=%.1f\n", settings.fadeSnap);
-
-            crossfadeActive = true;
+                   
+            if (settings.fadeSnap > 0) {
+                memcpy(crossfade_buffer_a, main_dmx_buffer, 513);
+                currentFadeTime = settings.fadeSnap;
+                crossfadeProgress = 0.0f;
+                crossfadeActive = true;
+            } else {
+                // Copia diretta senza fade
+                memcpy(main_dmx_buffer, main_target_buffer, 513);
+                crossfadeActive = false;
+            }
+            
             sceneActive = true;
             settings.isRunning = false;
             xSemaphoreGive(dmx_mutex);
         }
+    }else {
+        Serial.println("[SNAP] File NON trovato!");
     }
+    
 }

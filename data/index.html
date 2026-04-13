@@ -48,7 +48,7 @@
                     <hr style="border:0; border-top:3px solid var(--accent); margin:8px 0;">
                     <button class="btn-extra btn-reboot" onclick="blackout();" style="background:rgba(200,35,51,0.3) !important; border-color:var(--danger);">⬛ BLACKOUT</button>
                     <hr style="border:0; border-top:3px solid var(--accent); margin:8px 0;">
-                    <button class="btn-extra btn-ident" onclick="identifyNode();">🔦 IDENTIFY</button>
+                    <button class="btn-extra btn-ident" onclick="identify();">🔦 IDENTIFY</button>
                     <button class="btn-extra btn-reboot" onclick="rebootNode();">🔄 RIAVVIA </button>
             </div>
             <div class="extra-col">
@@ -103,9 +103,7 @@
                             <span class="slider"></span>
                         </label>
                     </div>
-
-                </div>
-                <div style="margin: 0 0 2em 0;">
+                    <div >
                     <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">CURVA FADE</label>
                     <select id="setup-fade-curve" style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
                         <option value="0">Lineare</option>
@@ -114,7 +112,17 @@
                         <option value="3">Logaritmica</option>
                         <option value="4">Esponenziale</option>
                     </select>
+                   </div>
+                    <div >
+                    <label style="font-size:0.65rem; color:var(--text-dim); display:block; margin-bottom:4px;">LED</label>
+                    <select id="setup-led" style="width:100%; padding:8px; background:var(--surface); border:1px solid #444; border-radius:6px; color:white; font-size:0.85rem;">
+                        <option value="0">Always On</option>
+                        <option value="1">Always Off</option>
+                        <option value="2">Pulse</option>
+                    </select>
+                   </div>
                 </div>
+                
                 <button class="btn-extra" onclick="saveSetup()" 
                         style="width:100%; background:rgba(33,136,56,0.2); border:1px solid var(--success); color:var(--success);">
                     💾 SALVA IMPOSTAZIONI

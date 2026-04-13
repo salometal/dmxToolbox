@@ -4,6 +4,8 @@
 
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
+#include <WiFi.h>
+#include <esp_task_wdt.h>
 #include "config.h"
 
 typedef enum {
@@ -13,7 +15,8 @@ typedef enum {
 } RelayMode;
 
 void setRelay(RelayMode mode);
-
+void hw_identify();
+void hw_boot();
 void hw_init();
 void hw_loop();
 

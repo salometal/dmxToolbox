@@ -167,7 +167,12 @@ function updateStatus() {
                     }
                 });
              } 
-
+                    // Disabilita snapshot se in standby
+                    const snapBtn = document.querySelector('.btn-snap');
+                    if (snapBtn) {
+                        snapBtn.disabled = (run === "0" && !sceneActive);
+                        snapBtn.style.opacity = snapBtn.disabled ? '0.4' : '1';
+                    }
                 
                 // 1. Popola l'IP nella nuova sezione Dispositivo
                 const ipDisplay = document.getElementById("current-ip");
@@ -1326,6 +1331,9 @@ function blackout() {
     fetch('/blackout').then(() => updateStatus());
 }
 
+function identify() {
+    fetch('/identify')
+}
 function saveSetup() {
     const fadeSnap    = document.getElementById('setup-fade-snap').value;
     const fadeMacro   = document.getElementById('setup-fade-macro').value;
@@ -1334,12 +1342,13 @@ function saveSetup() {
     const blackoutAuto = document.getElementById('setup-blackout-auto').value;
     const autoSave    = document.getElementById('setup-autosave').checked ? "1" : "0";
     const fadeCurve = document.getElementById('setup-fade-curve').value;
+    const ledmode = document.getElementById('setup-led').value;
     
 
     // Aggiorna soloLevel globale immediatamente
     soloLevel = Math.round(parseInt(soloLevelPct) * 2.55);
 
-    fetch(`/save_setup?fadesnap=${fadeSnap}&fademacro=${fadeMacro}&fadekeypad=${fadeKeypad}&sololevel=${soloLevelPct}&blackoutauto=${blackoutAuto}&autosave=${autoSave}&fadecurve=${fadeCurve}`)
+    fetch(`/save_setup?fadesnap=${fadeSnap}&fademacro=${fadeMacro}&fadekeypad=${fadeKeypad}&sololevel=${soloLevelPct}&blackoutauto=${blackoutAuto}&autosave=${autoSave}&fadecurve=${fadeCurve}&ledmode=${ledmode}`)
         .then(r => r.text())
         .then(res => {
             if (res === "OK") console.log("Setup salvato");
@@ -1360,6 +1369,7 @@ function loadSetup() {
                 document.getElementById('setup-blackout-auto').value = p[4];
                 document.getElementById('setup-autosave').checked   = p[5] === "1";
                 document.getElementById('setup-fade-curve').value = p[6];
+                document.getElementById('setup-led').value = p[7];
                 
                 // Aggiorna soloLevel globale
                 soloLevel = Math.round(parseInt(p[3]) * 2.55);

@@ -52,6 +52,7 @@ struct Config {
     bool autoSave = false;
 
     uint8_t fadeCurve = 1; // 0=Lineare, 1=S-Curve, 2=Equal Power, 3=Logaritmica, 4=Esponenziale
+    uint8_t ledMode = 0; // 0=Always On, 1=Always Off, 2=Pulse
 
 };
 

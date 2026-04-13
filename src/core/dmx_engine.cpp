@@ -109,6 +109,7 @@ if (keypadModeEnabled) {
                 if (packet.err == DMX_OK) {
                     if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(10)) == pdTRUE) {
                         dmx_read(dmxPort, main_dmx_buffer, DMX_PACKET_SIZE);
+                       //  Serial.printf("[DMX IN] Ch1:%d Ch2:%d Ch3:%d\n", main_dmx_buffer[1], main_dmx_buffer[2], main_dmx_buffer[3]);
                         xSemaphoreGive(dmx_mutex);
                         
                         // ORA INVIAMO VIA ART-NET
@@ -168,7 +169,7 @@ if (keypadModeEnabled) {
 void crossfadeTask(void *pvParameters) {
     while (true) {
         if (crossfadeActive && currentFadeTime > 0) {
-                        Serial.printf("[CROSSFADE] Progress: %.2f fadeTime: %.1f\n", crossfadeProgress, currentFadeTime);
+                      //  Serial.printf("[CROSSFADE] Progress: %.2f fadeTime: %.1f\n", crossfadeProgress, currentFadeTime);
 
             float steps = (currentFadeTime * 1000.0f) / 20.0f;
             float stepSize = 1.0f / steps;

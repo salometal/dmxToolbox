@@ -135,10 +135,12 @@ void setupMDNS() {
 
 void setup() {
     Serial.begin(115200);
+
+     hw_init();   
 pinMode(RELAY_PIN, OUTPUT);
 pinMode(RELAY_PIN2, OUTPUT);
-setRelay(RELAY_THRU); // default al boot
-    hw_init();
+setRelay(RELAY_ON); // default al boot
+
     
     // Inizializzazione Watchdog (10 secondi)
     esp_task_wdt_init(10, true);
@@ -235,6 +237,7 @@ if(LittleFS.begin(true)) {
 
     // Gestione Connessione WiFi
    initWiFiConnection();
+   hw_boot();
     setupMDNS();
     setupWebServer(); 
 
@@ -269,7 +272,7 @@ if(LittleFS.begin(true)) {
 }
 
 void loop() { 
-    hw_loop();
+   hw_loop();
     esp_task_wdt_reset();
     
     // Gestione Art-Net UDP dinamica basata sul flag udpActive

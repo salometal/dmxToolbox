@@ -526,6 +526,10 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         });
         // --- ROTTA SALVATAGGIO SNAP ---
         server.on("/save_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
+             if (!settings.isRunning && !sceneActive) {
+        Serial.println("[SNAP] Impossibile salvare in standby");
+        return;
+    }
             if (request->hasParam("id") && request->hasParam("name")) {
                 int id = request->getParam("id")->value().toInt();
                 String name = request->getParam("name")->value();
@@ -544,6 +548,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("id")) {
                 int id = request->getParam("id")->value().toInt();
+                setRelay(RELAY_OFF);
                 runSnap(id); // ← usa scene_manager con crossfade
                 request->send(200, "text/plain", "OK");
             } else {
@@ -551,14 +556,24 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             }
         });
 
-        server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
-            sceneActive = false;
-            blackoutActive = false;
-            settings.isRunning = preBlackoutRunning; // ← ripristina
-            preBlackoutRunning = false;
-            Serial.println("[SCENE] Override rilasciato");
-            request->send(200, "text/plain", "OK");
-        });
+            server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
+                sceneActive = false;
+                blackoutActive = false;
+                settings.isRunning = preBlackoutRunning;
+                preBlackoutRunning = false;
+                
+                // Ripristina relè in base alla modalità e allo stato precedente
+                if (settings.mode == 0) {
+                    setRelay(RELAY_ON);  // DMX IN — sempre ON in Modo 0
+                } else if (settings.mode == 1 && settings.isRunning) {
+                    setRelay(RELAY_OFF); // ArtNet IN attivo
+                } else {
+                    setRelay(RELAY_OFF);  // standby — thru attivo
+                }
+                
+                Serial.println("[SCENE] Override rilasciato");
+                request->send(200, "text/plain", "OK");
+            });
 
 
     server.on("/download-config", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -644,18 +659,19 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             request->send(200, "application/json", json);
         });
 
-        server.on("/blackout", HTTP_GET, [](AsyncWebServerRequest *request){
-            if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
-                memset(main_dmx_buffer, 0, 513);
-                sceneActive = true; // ← usa stessa logica della scena
-                 blackoutActive = true;
-                preBlackoutRunning = settings.isRunning; // ← salva stato
-                settings.isRunning = false; 
-                xSemaphoreGive(dmx_mutex);
-            }
-            Serial.println("[SYSTEM] Blackout eseguito");
-            request->send(200, "text/plain", "OK");
-        });
+            server.on("/blackout", HTTP_GET, [](AsyncWebServerRequest *request){
+                if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+                    memset(main_dmx_buffer, 0, 513);
+                    sceneActive = true;
+                    blackoutActive = true;
+                    preBlackoutRunning = settings.isRunning;
+                    settings.isRunning = false;
+                    xSemaphoreGive(dmx_mutex);
+                }
+                setRelay(RELAY_OFF); // ← disconnette DMX IN
+                Serial.println("[SYSTEM] Blackout eseguito");
+                request->send(200, "text/plain", "OK");
+            });
 
         // --- ROTTA GET SETUP ---
         server.on("/get_setup", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -665,7 +681,8 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             s += "|" + String((int)round(settings.soloLevel * 100.0 / 255.0));
             s += "|" + String(settings.blackoutAuto);
             s += "|" + String(settings.autoSave ? "1" : "0");
-            s += "|" + String(settings.fadeCurve);             
+            s += "|" + String(settings.fadeCurve);    
+            s += "|" + String(settings.ledMode); // indice 7         
             
             request->send(200, "text/plain", s);
         });
@@ -679,6 +696,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("blackoutauto")) settings.blackoutAuto = request->getParam("blackoutauto")->value().toInt();
             if (request->hasParam("autosave"))    settings.autoSave    = (request->getParam("autosave")->value() == "1");
             if (request->hasParam("fadecurve")) settings.fadeCurve = request->getParam("fadecurve")->value().toInt();
+            if (request->hasParam("ledmode")) settings.ledMode = request->getParam("ledmode")->value().toInt();
             
             saveConfiguration();
             request->send(200, "text/plain", "OK");
@@ -700,6 +718,13 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
                 
                 request->send(200, "text/plain", "OK");
             });
+
+            server.on("/identify", HTTP_GET, [](AsyncWebServerRequest *request){
+    hw_identify();
+
+    request->send(200, "text/plain", "OK");
+                });
+
     server.on("/factoryreset", HTTP_GET, [](AsyncWebServerRequest *request){
         memset(settings.ssid, 0, sizeof(settings.ssid));
         memset(settings.pass, 0, sizeof(settings.pass));
@@ -708,6 +733,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         memset(settings.subnet, 0, sizeof(settings.subnet));
         saveConfiguration(); 
         request->send(200, "text/plain", "Reset effettuato. Riavvio...");
+         esp_task_wdt_reset();
         delay(1500);
         ESP.restart();
     });
@@ -733,8 +759,19 @@ void networkTask(void *pvParameters) {
             vTaskDelay(pdMS_TO_TICKS(100)); 
             continue; 
         }
+        // ← AGGIUNGI QUESTO BLOCCO
+        if (sceneActive) {
+            bool canSend = (WiFi.status() == WL_CONNECTED || WiFi.softAPgetStationNum() > 0);
+            if (canSend) {
+                if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(5)) == pdTRUE) {
+                    sendArtDmx(settings.universe, main_dmx_buffer);
+                    xSemaphoreGive(dmx_mutex);
+                }
+            }
+            vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
 
-        // PUNTO B: Controllo Stato
         if (!settings.isRunning) {
             vTaskDelay(pdMS_TO_TICKS(50));
             continue;
