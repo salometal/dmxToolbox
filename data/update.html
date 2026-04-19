@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>DMX Toolbox — Update</title>
+    <style>
+        /* ================================================================
+           VARIABILI — identiche al Toolbox per coerenza famiglia
+        ================================================================ */
+        :root {
+            --bg-color: #0f0f0f;
+            --surface: #1a1a1a;
+            --card-bg: #242424;
+            --primary: #007bff;
+            --accent: #00d4ff;
+            --text: #e0e0e0;
+            --text-dim: #999;
+            --success: #218838;
+            --warning: #ffc107;
+            --danger: #c82333;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: "Segoe UI", Roboto, sans-serif;
+            background: var(--bg-color);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+
+        /* Header */
+        header {
+            background: #000;
+            padding: 16px 20px;
+            border-bottom: 2px solid var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            color: var(--primary);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            font-size: 0.95rem;
+        }
+
+        .page-title {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-left: auto;
+        }
+
+        /* Container */
+        .container {
+            max-width: 560px;
+            margin: 0 auto;
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+        }
+
+        .card-title {
+            font-size: 1rem;
+            font-weight: bold;
+            color: var(--accent);
+            border-left: 4px solid var(--primary);
+            padding-left: 10px;
+            margin-bottom: 16px;
+        }
+
+        .card-desc {
+            font-size: 0.8rem;
+            color: var(--text-dim);
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+
+        /* Workflow hint */
+        .workflow-hint {
+            background: rgba(0,212,255,0.06);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+        .workflow-hint strong { color: var(--accent); }
+        .workflow-step {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 4px 0;
+        }
+        .step-num {
+            background: var(--primary);
+            color: #fff;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        /* File input area */
+        .file-drop {
+            border: 2px dashed #444;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-bottom: 14px;
+            position: relative;
+        }
+        .file-drop:hover, .file-drop.dragover { border-color: var(--accent); background: rgba(0,212,255,0.05); }
+        .file-drop input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+        .file-drop-icon  { font-size: 2rem; margin-bottom: 6px; }
+        .file-drop-label { font-size: 0.8rem; color: var(--text-dim); }
+        .file-drop-name  { font-size: 0.85rem; color: var(--accent); margin-top: 6px; font-family: monospace; display: none; }
+
+        /* Pulsanti */
+        .btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: 0.15s;
+        }
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        .btn-primary { background: var(--primary); color: #fff; }
+        .btn-success { background: var(--success); color: #fff; }
+        .btn-warning { background: rgba(255,193,7,0.15); border: 2px solid var(--warning); color: var(--warning); }
+        .btn-danger  { background: rgba(200,35,51,0.15); border: 2px solid var(--danger);  color: var(--danger); }
+        .btn-outline { background: transparent; border: 2px solid #444; color: var(--text-dim); }
+
+        .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+        /* Progress bar */
+        .progress-wrap { display: none; margin-top: 14px; }
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-bottom: 6px;
+        }
+        .progress-track {
+            height: 8px;
+            background: #111;
+            border-radius: 4px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+        .progress-fill {
+            height: 100%;
+            background: var(--primary);
+            border-radius: 4px;
+            width: 0%;
+            transition: width 0.3s;
+        }
+        .progress-fill.success { background: var(--success); }
+        .progress-fill.error   { background: var(--danger); }
+
+        /* Status message */
+        .status-msg {
+            margin-top: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            display: none;
+            line-height: 1.5;
+        }
+        .status-msg.info    { background: rgba(0,123,255,0.12); border: 1px solid var(--primary); color: #7eb8ff; }
+        .status-msg.success { background: rgba(33,136,56,0.15); border: 1px solid var(--success); color: #6fcf97; }
+        .status-msg.error   { background: rgba(200,35,51,0.15); border: 1px solid var(--danger);  color: #ff7c8a; }
+        .status-msg.warning { background: rgba(255,193,7,0.12); border: 1px solid var(--warning); color: var(--warning); }
+
+        /* Warning box */
+        .warning-box {
+            background: rgba(200,35,51,0.10);
+            border: 1px solid var(--danger);
+            border-radius: 8px;
+            padding: 12px 14px;
+            font-size: 0.8rem;
+            color: #ff9999;
+            margin-bottom: 14px;
+            line-height: 1.5;
+            display: none;
+        }
+        .warning-box.visible { display: block; }
+        .warning-box strong  { color: var(--danger); }
+
+        /* Confirm checkbox */
+        .confirm-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 0;
+            font-size: 0.82rem;
+            cursor: pointer;
+            display: none;
+        }
+        .confirm-row.visible { display: flex; }
+        .confirm-row input { width: 16px; height: 16px; accent-color: var(--danger); flex-shrink: 0; }
+
+        /* Divider */
+        .divider { border: 0; border-top: 1px solid #2a2a2a; margin: 4px 0 16px; }
+
+        /* Sezione backup/restore — row */
+        .backup-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #1e1e1e;
+        }
+        .backup-row:last-child { border-bottom: none; padding-bottom: 0; }
+        .backup-info { flex: 1; }
+        .backup-title { font-size: 0.85rem; font-weight: bold; color: var(--text); }
+        .backup-desc  { font-size: 0.72rem; color: var(--text-dim); margin-top: 2px; }
+        .backup-btn   { flex-shrink: 0; padding: 10px 18px; font-size: 0.75rem; width: auto; }
+
+        /* Reboot countdown */
+        .reboot-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 16px;
+            text-align: center;
+        }
+        .reboot-overlay.visible { display: flex; }
+        .reboot-icon    { font-size: 3rem; }
+        .reboot-title   { font-size: 1.2rem; font-weight: bold; color: var(--accent); }
+        .reboot-sub     { font-size: 0.85rem; color: var(--text-dim); }
+        .reboot-count   { font-size: 2.5rem; font-weight: bold; font-family: monospace; color: var(--warning); }
+
+        /* Sezione restore file */
+        #restore-file-area { display: none; margin-top: 12px; }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header>
+    <div class="logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M4 7h16M4 12h16M4 17h10"/>
+        </svg>
+        <span>DMX<span style="color:var(--text); font-weight:300;">TOOLBOX</span></span>
+    </div>
+    <div class="page-title">AGGIORNAMENTO SISTEMA</div>
+</header>
+
+<!-- Reboot overlay -->
+<div class="reboot-overlay" id="reboot-overlay">
+    <div class="reboot-icon">🔄</div>
+    <div class="reboot-title" id="reboot-title">RIAVVIO IN CORSO</div>
+    <div class="reboot-count" id="reboot-count">10</div>
+    <div class="reboot-sub">La pagina si ricaricherà automaticamente</div>
+</div>
+
+<div class="container">
+
+    <!-- Workflow hint -->
+    <div class="workflow-hint">
+        <strong>Procedura consigliata prima di aggiornare:</strong>
+        <div class="workflow-step"><div class="step-num">1</div> Esegui il <strong>Backup</strong> per salvare scene e macro</div>
+        <div class="workflow-step"><div class="step-num">2</div> Aggiorna <strong>Firmware</strong> e/o <strong>Interfaccia</strong></div>
+        <div class="workflow-step"><div class="step-num">3</div> Se hai aggiornato l'interfaccia, esegui il <strong>Restore</strong></div>
+    </div>
+
+    <!-- ================================================================
+         SEZIONE 1 — AGGIORNA FIRMWARE
+    ================================================================ -->
+    <div class="card">
+        <div class="card-title">⚡ AGGIORNA FIRMWARE</div>
+        <div class="card-desc">
+            Carica il file <strong>.bin</strong> del firmware. Le scene e le impostazioni vengono preservate.
+            Il dispositivo si riavvierà automaticamente al termine.
+        </div>
+
+        <div class="file-drop" id="fw-drop" ondragover="handleDrag(event,'fw-drop')" ondragleave="clearDrag('fw-drop')" ondrop="handleDrop(event,'fw')">
+            <input type="file" id="fw-file" accept=".bin" onchange="onFileSelect('fw')">
+            <div class="file-drop-icon">📦</div>
+            <div class="file-drop-label">Trascina qui il file <strong>.bin</strong><br>oppure clicca per selezionarlo</div>
+            <div class="file-drop-name" id="fw-file-name"></div>
+        </div>
+
+        <div class="progress-wrap" id="fw-progress-wrap">
+            <div class="progress-label">
+                <span id="fw-progress-label">Upload in corso...</span>
+                <span id="fw-progress-pct">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="fw-progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="status-msg" id="fw-status"></div>
+
+        <button class="btn btn-primary" id="fw-btn" onclick="startFirmwareUpdate()" disabled style="margin-top:14px;">
+            AVVIA AGGIORNAMENTO FIRMWARE
+        </button>
+    </div>
+
+    <!-- ================================================================
+         SEZIONE 2 — AGGIORNA INTERFACCIA
+    ================================================================ -->
+    <div class="card">
+        <div class="card-title">🖥 AGGIORNA INTERFACCIA</div>
+        <div class="card-desc">
+            Carica il file <strong>littlefs.bin</strong> per aggiornare la web UI.
+        </div>
+
+        <!-- Warning visibile solo dopo selezione file -->
+        <div class="warning-box" id="fs-warning">
+            <strong>⚠ ATTENZIONE</strong> — L'aggiornamento dell'interfaccia sovrascrive il filesystem.<br>
+            Le scene e le macro verranno <strong>cancellate</strong> se non hai eseguito il backup.<br>
+            Procedi solo dopo aver scaricato il backup nella sezione sottostante.
+        </div>
+
+        <div class="confirm-row" id="fs-confirm-row">
+            <input type="checkbox" id="fs-confirm-check" onchange="onFsConfirmChange()">
+            <label for="fs-confirm-check">Ho eseguito il backup — sono consapevole che le scene verranno sovrascritte</label>
+        </div>
+
+        <div class="file-drop" id="fs-drop" ondragover="handleDrag(event,'fs-drop')" ondragleave="clearDrag('fs-drop')" ondrop="handleDrop(event,'fs')">
+            <input type="file" id="fs-file" accept=".bin" onchange="onFileSelect('fs')">
+            <div class="file-drop-icon">💾</div>
+            <div class="file-drop-label">Trascina qui il file <strong>littlefs.bin</strong><br>oppure clicca per selezionarlo</div>
+            <div class="file-drop-name" id="fs-file-name"></div>
+        </div>
+
+        <div class="progress-wrap" id="fs-progress-wrap">
+            <div class="progress-label">
+                <span id="fs-progress-label">Upload in corso...</span>
+                <span id="fs-progress-pct">0%</span>
+            </div>
+            <div class="progress-track">
+                <div class="progress-fill" id="fs-progress-fill"></div>
+            </div>
+        </div>
+
+        <div class="status-msg" id="fs-status"></div>
+
+        <button class="btn btn-warning" id="fs-btn" onclick="startFsUpdate()" disabled style="margin-top:14px;">
+            AVVIA AGGIORNAMENTO INTERFACCIA
+        </button>
+    </div>
+
+    <!-- ================================================================
+         SEZIONE 3 — BACKUP / RESTORE
+    ================================================================ -->
+    <div class="card">
+        <div class="card-title">🗄 BACKUP / RESTORE</div>
+        <div class="card-desc">
+            Esporta o importa scene, macro e impostazioni di rete in un singolo file archivio.
+        </div>
+
+        <!-- Backup -->
+        <div class="backup-row">
+            <div class="backup-info">
+                <div class="backup-title">📥 Esporta Backup</div>
+                <div class="backup-desc">Scarica un archivio con tutte le scene, macro e impostazioni</div>
+            </div>
+            <button class="btn btn-success backup-btn" onclick="startBackup()">BACKUP</button>
+        </div>
+
+        <div class="status-msg" id="backup-status" style="margin-top:8px;"></div>
+
+        <hr class="divider" style="margin-top:14px;">
+
+        <!-- Restore -->
+        <div class="backup-row">
+            <div class="backup-info">
+                <div class="backup-title">📤 Importa Backup</div>
+                <div class="backup-desc">Ripristina scene, macro e impostazioni da un backup precedente</div>
+            </div>
+            <button class="btn btn-outline backup-btn" onclick="showRestoreArea()">RESTORE</button>
+        </div>
+
+        <!-- Area restore — appare dopo click -->
+        <div id="restore-file-area">
+            <div class="warning-box visible" style="margin-top:12px;">
+                <strong>⚠ ATTENZIONE</strong> — Il restore sovrascriverà le scene e le impostazioni attuali.<br>
+                Il dispositivo si riavvierà al termine.
+            </div>
+            <div class="confirm-row visible" id="restore-confirm-row" style="margin-bottom:10px;">
+                <input type="checkbox" id="restore-confirm-check" onchange="onRestoreConfirmChange()">
+                <label for="restore-confirm-check">Confermo — voglio sovrascrivere i dati attuali</label>
+            </div>
+            <div class="file-drop" id="restore-drop" ondragover="handleDrag(event,'restore-drop')" ondragleave="clearDrag('restore-drop')" ondrop="handleDrop(event,'restore')">
+                <input type="file" id="restore-file" accept=".gz,.tar.gz" onchange="onFileSelect('restore')">
+                <div class="file-drop-icon">🗜</div>
+                <div class="file-drop-label">Trascina il file <strong>.tar.gz</strong> di backup<br>oppure clicca per selezionarlo</div>
+                <div class="file-drop-name" id="restore-file-name"></div>
+            </div>
+            <div class="progress-wrap" id="restore-progress-wrap">
+                <div class="progress-label">
+                    <span>Upload e ripristino in corso...</span>
+                    <span id="restore-progress-pct">0%</span>
+                </div>
+                <div class="progress-track">
+                    <div class="progress-fill" id="restore-progress-fill"></div>
+                </div>
+            </div>
+            <div class="status-msg" id="restore-status"></div>
+            <button class="btn btn-danger" id="restore-btn" onclick="startRestore()" disabled style="margin-top:12px;">
+                AVVIA RESTORE
+            </button>
+        </div>
+
+    </div>
+
+</div><!-- /container -->
+
+<script>
+// ============================================================
+// STATO
+// ============================================================
+const FILES = { fw: null, fs: null, restore: null };
+
+// ============================================================
+// FILE SELECT / DRAG & DROP
+// ============================================================
+function onFileSelect(type) {
+    const input = document.getElementById(type + '-file');
+    if (!input.files || !input.files[0]) return;
+    FILES[type] = input.files[0];
+    showFileName(type, input.files[0].name);
+    onFileReady(type);
+}
+
+function showFileName(type, name) {
+    const el = document.getElementById(type + '-file-name');
+    if (el) { el.innerText = '📄 ' + name; el.style.display = 'block'; }
+}
+
+function onFileReady(type) {
+    if (type === 'fw') {
+        document.getElementById('fw-btn').disabled = false;
+        hideStatus('fw-status');
+    }
+    if (type === 'fs') {
+        document.getElementById('fs-warning').classList.add('visible');
+        document.getElementById('fs-confirm-row').classList.add('visible');
+        hideStatus('fs-status');
+        // il btn rimane disabilitato finché non si spunta la conferma
+    }
+    if (type === 'restore') {
+        onRestoreConfirmChange(); // rivaluta stato btn
+    }
+}
+
+function onFsConfirmChange() {
+    const checked = document.getElementById('fs-confirm-check').checked;
+    const hasFile = !!FILES['fs'];
+    document.getElementById('fs-btn').disabled = !(checked && hasFile);
+}
+
+function onRestoreConfirmChange() {
+    const checked = document.getElementById('restore-confirm-check').checked;
+    const hasFile = !!FILES['restore'];
+    document.getElementById('restore-btn').disabled = !(checked && hasFile);
+}
+
+function handleDrag(e, dropId) {
+    e.preventDefault();
+    document.getElementById(dropId).classList.add('dragover');
+}
+function clearDrag(dropId) {
+    document.getElementById(dropId).classList.remove('dragover');
+}
+function handleDrop(e, type) {
+    e.preventDefault();
+    clearDrag(type + '-drop');
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+    FILES[type] = file;
+    showFileName(type, file.name);
+    onFileReady(type);
+}
+
+// ============================================================
+// UPLOAD CON PROGRESS
+// ============================================================
+function uploadFile(url, file, progressFillId, progressPctId, progressWrapId, onSuccess, onError) {
+    const wrap = document.getElementById(progressWrapId);
+    const fill = document.getElementById(progressFillId);
+    const pct  = document.getElementById(progressPctId);
+    const label = progressWrapId === 'fw-progress-wrap' 
+        ? document.getElementById('fw-progress-label')
+        : progressWrapId === 'fs-progress-wrap'
+            ? document.getElementById('fs-progress-label')
+            : null;
+
+    wrap.style.display = 'block';
+    fill.className = 'progress-fill';
+    fill.style.width = '0%';
+    if (pct) pct.innerText = '0%';
+
+    const xhr = new XMLHttpRequest();
+    const fd  = new FormData();
+    fd.append('file', file, file.name);
+
+    xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const p = Math.round((e.loaded / e.total) * 100);
+        fill.style.width = p + '%';
+        if (pct) pct.innerText = p + '%';
+        // Quando arriva a 100% cambia il messaggio
+        if (p >= 100 && label) label.innerText = 'Upload completato — attendo riavvio...';
+    };
+
+    xhr.onload = () => {
+        if (xhr.status === 200 && xhr.responseText.trim() === 'OK') {
+            fill.className = 'progress-fill success';
+            fill.style.width = '100%';
+            if (pct) pct.innerText = '100%';
+            onSuccess();
+        } else {
+            fill.className = 'progress-fill error';
+            onError(xhr.responseText || 'Errore sconosciuto');
+        }
+    };
+
+    xhr.onerror = () => {
+        // L'errore di connessione è normale — il dispositivo si è riavviato
+        // Trattiamolo come successo e aspettiamo che torni online
+        fill.className = 'progress-fill success';
+        fill.style.width = '100%';
+        if (pct) pct.innerText = '100%';
+        if (label) label.innerText = 'Dispositivo in riavvio...';
+        onSuccess();
+    };
+
+    xhr.open('POST', url);
+    xhr.send(fd);
+}
+
+// ============================================================
+// FIRMWARE UPDATE
+// ============================================================
+function startFirmwareUpdate() {
+    if (!FILES.fw) return;
+    const btn = document.getElementById('fw-btn');
+    btn.disabled = true;
+    showStatus('fw-status', 'info', 'Upload in corso... non spegnere il dispositivo.');
+
+    uploadFile(
+        '/update/firmware',
+        FILES.fw,
+        'fw-progress-fill',
+        'fw-progress-pct',
+        'fw-progress-wrap',
+        () => {
+            showStatus('fw-status', 'success', '✓ Firmware aggiornato. Riavvio in corso...');
+            startRebootCountdown(10);
+        },
+        (err) => {
+            showStatus('fw-status', 'error', '✗ Errore: ' + err);
+            btn.disabled = false;
+        }
+    );
+}
+
+// ============================================================
+// FS UPDATE
+// ============================================================
+function startFsUpdate() {
+    if (!FILES.fs) return;
+    const btn = document.getElementById('fs-btn');
+    btn.disabled = true;
+    showStatus('fs-status', 'info', 'Upload in corso... non spegnere il dispositivo.');
+
+    uploadFile(
+        '/update/fs',
+        FILES.fs,
+        'fs-progress-fill',
+        'fs-progress-pct',
+        'fs-progress-wrap',
+        () => {
+            showStatus('fs-status', 'success', '✓ Interfaccia aggiornata. Riavvio in corso...');
+            startRebootCountdown(10);
+        },
+        (err) => {
+            showStatus('fs-status', 'error', '✗ Errore: ' + err);
+            btn.disabled = false;
+        }
+    );
+}
+
+// ============================================================
+// BACKUP
+// ============================================================
+function startBackup() {
+    showStatus('backup-status', 'info', 'Generazione backup in corso...');
+
+    fetch('/backup')
+        .then(r => {
+            if (!r.ok) throw new Error('Errore server: ' + r.status);
+            return r.blob();
+        })
+        .then(blob => {
+            // Trigger download
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            const date = new Date();
+            const ts   = date.getFullYear() + 
+                         String(date.getMonth()+1).padStart(2,'0') +
+                         String(date.getDate()).padStart(2,'0') + '_' +
+                         String(date.getHours()).padStart(2,'0') +
+                         String(date.getMinutes()).padStart(2,'0');
+            a.href     = url;
+            a.download = 'dmxtoolbox_backup_' + ts + '.tar.gz';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showStatus('backup-status', 'success', '✓ Backup scaricato correttamente.');
+        })
+        .catch(err => {
+            showStatus('backup-status', 'error', '✗ Errore backup: ' + err.message);
+        });
+}
+
+// ============================================================
+// RESTORE
+// ============================================================
+function showRestoreArea() {
+    document.getElementById('restore-file-area').style.display = 'block';
+}
+
+function startRestore() {
+    if (!FILES.restore) return;
+    const btn = document.getElementById('restore-btn');
+    btn.disabled = true;
+    showStatus('restore-status', 'info', 'Upload e ripristino in corso... non spegnere il dispositivo.');
+
+    uploadFile(
+        '/restore',
+        FILES.restore,
+        'restore-progress-fill',
+        'restore-progress-pct',
+        'restore-progress-wrap',
+        () => {
+            showStatus('restore-status', 'success', '✓ Restore completato. Riavvio in corso...');
+            startRebootCountdown(12);
+        },
+        (err) => {
+            showStatus('restore-status', 'error', '✗ Errore restore: ' + err);
+            btn.disabled = false;
+        }
+    );
+}
+
+// ============================================================
+// REBOOT COUNTDOWN
+// ============================================================
+function startRebootCountdown(seconds) {
+    const overlay = document.getElementById('reboot-overlay');
+    const count   = document.getElementById('reboot-count');
+    const title   = document.getElementById('reboot-overlay').querySelector('.reboot-title');
+    
+    overlay.classList.add('visible');
+    count.innerText = seconds;
+
+    // Polling — aspetta che il dispositivo torni online
+    let deviceBack = false;
+    const pollInterval = setInterval(() => {
+        fetch('/status', { signal: AbortSignal.timeout(2000) })
+            .then(() => {
+                if (!deviceBack) {
+                    deviceBack = true;
+                    clearInterval(pollInterval);
+                    clearInterval(countdown);
+                    count.innerText = '✓';
+                    if (title) title.innerText = 'AGGIORNAMENTO COMPLETATO';
+                    setTimeout(() => {
+                        window.location.href = '/';
+                    }, 2000);
+                }
+            })
+            .catch(() => {}); // ancora offline, continua
+    }, 2000);
+
+    let remaining = seconds;
+    const countdown = setInterval(() => {
+        remaining--;
+        count.innerText = remaining;
+        if (remaining <= 0) {
+            clearInterval(countdown);
+            // Se non è tornato online entro il timeout, ricarica comunque
+            if (!deviceBack) {
+                clearInterval(pollInterval);
+                setTimeout(() => { window.location.href = '/'; }, 1000);
+            }
+        }
+    }, 1000);
+}
+// ============================================================
+// UI HELPERS
+// ============================================================
+function showStatus(id, type, msg) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = 'status-msg ' + type;
+    el.innerText = msg;
+    el.style.display = 'block';
+}
+
+function hideStatus(id) {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+}
+</script>
+</body>
+</html>
