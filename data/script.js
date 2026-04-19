@@ -90,6 +90,25 @@ function updateStatus() {
                         renderMacroGrid();
                     }
                 } 
+
+                // Sincronizza il toggle con lo stato reale del dispositivo
+                    const toggle = document.getElementById('keypadToggle');
+                    if (toggle && toggle.checked !== keypadActive) {
+                        toggle.checked = keypadActive;
+                        // Aggiorna anche il display del comando
+                        const display = document.getElementById('cmd-display');
+                        if (display) {
+                            if (!keypadActive) {
+                                display.innerText = "OFF";
+                                display.style.color = "#ff4444";
+                                display.style.opacity = "0.6";
+                            } else {
+                                display.innerText = "CHAN _";
+                                display.style.color = "";
+                                display.style.opacity = "1";
+                            }
+                        }
+                    }
                 // --- GESTIONE SNAP (Indice 12) ---
                 if (p[12] !== undefined) {
                     // Assicuriamoci che l'oggetto settings esista (già fatto sopra, ma per sicurezza)
@@ -175,8 +194,8 @@ function updateStatus() {
                     }
                 
                 // 1. Popola l'IP nella nuova sezione Dispositivo
-                const ipDisplay = document.getElementById("current-ip");
-                if (ipDisplay) ipDisplay.innerText = currentIP;
+                const currentIpDisplay = document.getElementById("current-ip");
+                if (currentIpDisplay) currentIpDisplay.innerText = currentIP;
 
                 // 2. Popola l'input Hostname solo se non ci sta scrivendo l'utente
                 const hostInput = document.getElementById('hostname-input');
@@ -214,6 +233,37 @@ function updateStatus() {
                     s2.innerText = (mode === "1" && run === "1") ? "ATTIVO" : "IDLE";
                     s2.style.color = (mode === "1" && run === "1") ? "var(--success)" : "";
                 }
+            // AGGIORNA SISTEMA VAL
+            const ipDisplay = document.getElementById("val-ip");
+            if (ipDisplay) ipDisplay.innerText = currentIP;
+
+            const universeDisplay = document.getElementById("val-universe");
+            if (universeDisplay) universeDisplay.innerText = currentUniverse;
+
+            const modeDisplay = document.getElementById("val-mode");
+            if (modeDisplay) {
+                if (keypadActive) {
+                    modeDisplay.innerText = "KEYPAD";
+                } else if (run === "0") {
+                    modeDisplay.innerText = "STANDBY";
+                } else {
+                    const modeLabels = ["DMX→ART", "ART→DMX", "STANDALONE"];
+                    modeDisplay.innerText = modeLabels[parseInt(mode)] || "--";
+                }
+            }
+            const uptime = p[16];
+            const fsPct  = p[17];
+
+            const valUp = document.getElementById("val-up");
+            if (valUp && uptime) valUp.innerText = formatUptime(parseInt(uptime));
+
+            const valFs = document.getElementById("val-fs");
+            if (valFs && fsPct !== undefined) valFs.innerText = fsPct + "% Utilizzata";
+
+            const valHz = document.getElementById("val-hz");
+            if (valHz) valHz.innerText = currentRefresh + " Hz";
+
+
 
                                 // --- Gestione Dinamica Pulsanti Controllo ---
                 const btnDmx = document.getElementById("btn-ctrl-dmxin");
@@ -1376,6 +1426,13 @@ function loadSetup() {
             }
         })
         .catch(err => console.error("Errore loadSetup:", err));
+}
+
+function formatUptime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = seconds % 60;
+    return [h, m, s].map(v => String(v).padStart(2, '0')).join(':');
 }
 
 //

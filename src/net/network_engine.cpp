@@ -324,6 +324,13 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
         s += "|" + String(artnetConfirmed ? "1" : "0");
         s += "|" + String(sceneActive ? "1" : "0");       // 14 ← snap active flag
         s += "|" + String(blackoutActive ? "1" : "0"); // 15 blackout flag
+        // Uptime in secondi (indice 16)
+        s += "|" + String(millis() / 1000);
+        // FS usage % (indice 17)
+        size_t fsTotal = LittleFS.totalBytes();
+        size_t fsUsed  = LittleFS.usedBytes();
+        int fsPct = (fsTotal > 0) ? (int)((fsUsed * 100) / fsTotal) : 0;
+        s += "|" + String(fsPct);
                     
         request->send(200, "text/plain", s);
     });
