@@ -309,8 +309,7 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
 server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(404, "text/plain", "");
 });
-    // --- 2. GESTIONE FILESYSTEM ---
-    server.serveStatic("/", LittleFS, "/");
+
 
     // --- 3. ROTTE DI CONFIGURAZIONE E SISTEMA ---
     server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -460,12 +459,14 @@ server.on("/keypad_toggle", HTTP_GET, [](AsyncWebServerRequest *request){
         // 2. Logica di DISATTIVAZIONE (da ON a OFF)
         else if (!requestedState && keypadModeEnabled) {
              setRelay(RELAY_ON);
+             vTaskDelay(pdMS_TO_TICKS(20));
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                 memset(keypad_dmx_buffer, 0, 513);
                 keypadModeEnabled = false; // Rilasciamo l'override sotto Mutex
                 xSemaphoreGive(dmx_mutex);
                   
                 settings.isRunning = wasRunningBeforeKeypad; // Ripristino lo stato originale
+                wasRunningBeforeKeypad = false;
                 Serial.println("[SYSTEM] Keypad Mode: DISATTIVATO");
           
             }
@@ -536,25 +537,26 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             }
         });
 
-            server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
-                sceneActive = false;
-                blackoutActive = false;
-                settings.isRunning = preBlackoutRunning;
-                preBlackoutRunning = false;
-                
-                // Ripristina relè in base alla modalità e allo stato precedente
-                if (settings.mode == 0) {
-                    setRelay(RELAY_ON);  // DMX IN — sempre ON in Modo 0
-                } else if (settings.mode == 1 && settings.isRunning) {
-                    setRelay(RELAY_OFF); // ArtNet IN attivo
-                } else {
-                    setRelay(RELAY_OFF);  // standby — thru attivo
-                }
-                
-                Serial.println("[SCENE] Override rilasciato");
-                request->send(200, "text/plain", "OK");
-            });
+        server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
+            sceneActive = false;
+            blackoutActive = false;
+            
+            // preBlackoutRunning è già stato salvato al momento del blackout/snap
+            bool wasRunning = preBlackoutRunning;
+            settings.isRunning = preBlackoutRunning;
+            preBlackoutRunning = false;
 
+              if (keypadModeEnabled) {
+        // Keypad attivo = DMX OUT → relay rimane OFF
+                setRelay(RELAY_OFF);
+            } else if (settings.mode == 0) {
+                setRelay(RELAY_ON);
+            } else {
+                setRelay(RELAY_OFF);
+            }
+            Serial.println("[SCENE] Override rilasciato");
+            request->send(200, "text/plain", "OK");
+        });
 
     server.on("/download-config", HTTP_GET, [](AsyncWebServerRequest *request){
         if (LittleFS.exists("/config.bin")) {
@@ -725,6 +727,9 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
     });
 
 setupUpdateEndpoints(server); 
+    // --- 2. GESTIONE FILESYSTEM ---
+    server.serveStatic("/", LittleFS, "/");
+
     server.begin();
 }
 

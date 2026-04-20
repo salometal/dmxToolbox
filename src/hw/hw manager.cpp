@@ -146,16 +146,19 @@ void setRelay(RelayMode mode) {
             digitalWrite(RELAY_PIN, LOW);   // R1 → NC
             digitalWrite(RELAY_PIN2, LOW);  // R2 → NC
             Serial.println("[RELAY] Modalità THRU 1low 2 low");
+            delay(15); // ← attesa commutazione fisica
             break;
         case RELAY_ON:
             digitalWrite(RELAY_PIN, HIGH);  // R1 → NO (MAX485 INPUT)
             digitalWrite(RELAY_PIN2, LOW);  // R2 → NC (thru attivo)
             Serial.println("[RELAY] Modalità ON - DMX IN attivo 1 high 2 low");
+            delay(50); // ← attesa commutazione fisica
             break;
         case RELAY_OFF:
             digitalWrite(RELAY_PIN, LOW);   // R1 → NC (IN disconnesso)
             digitalWrite(RELAY_PIN2, HIGH); // R2 → NO (thru interrotto)
             Serial.println("[RELAY] Modalità OFF - ArtNet OUT 1 low 2 high");
+            delay(15); // ← attesa commutazione fisica
             break;
     }
 }

@@ -83,13 +83,13 @@ if (keypadModeEnabled) {
         // CASO B: FUNZIONAMENTO NORMALE
         // ==========================================================
         else {
-            // ... qui continua il tuo "if (settings.mode == 0)" ...
-
+          
         // --- LOGICA DMX ---
         if (settings.mode == 0) { 
             // MODO 0: RICEZIONE (DMX -> ARTNET)
 
-                if (lastPinMode != 0) {
+                if (lastPinMode != 0 && !keypadModeEnabled) {
+
                         setRelay(RELAY_ON);
                 
                         dmx_set_pin(dmxPort, DMX_TX_PIN, DMX_RX_PIN, -1);

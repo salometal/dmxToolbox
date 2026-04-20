@@ -6,10 +6,11 @@ extern uint8_t *main_dmx_buffer;
 extern uint8_t *keypad_dmx_buffer;
 extern uint8_t *main_target_buffer;
 extern uint8_t keypad_target_buffer[];
-extern uint8_t keypad_fade_start[];  // ← aggiunto
+extern uint8_t keypad_fade_start[];  
 extern bool keypadFading;
 extern float keypadFadeProgress;
-extern float currentFadeTime;        // ← aggiunto
+extern float currentFadeTime;        
+extern bool preBlackoutRunning;
 
 void saveMacro(int id, const char* name) {
     strlcpy(settings.macros[id], name, sizeof(settings.macros[id]));
@@ -66,6 +67,7 @@ void runSnap(int id) {
     if (f) {
       
         if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+            preBlackoutRunning = false;
             int bytesRead = f.read(main_target_buffer, 513);
            
             f.close();
@@ -81,6 +83,8 @@ void runSnap(int id) {
                 crossfadeActive = false;
             }
             
+            
+            preBlackoutRunning = settings.isRunning;
             sceneActive = true;
             settings.isRunning = false;
             xSemaphoreGive(dmx_mutex);
