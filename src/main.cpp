@@ -183,6 +183,7 @@ if(LittleFS.begin(true)) {
         strlcpy(settings.hostname, "dmxtoolbox", sizeof(settings.hostname));
         settings.refreshRate = 25;
         settings.universe = 0;
+        strlcpy(settings.easyPin, "0000", sizeof(settings.easyPin));
         
         // Inizializza i nomi macro come vuoti (opzionale se usi memset sopra)
     for(int i=0; i<10; i++) {

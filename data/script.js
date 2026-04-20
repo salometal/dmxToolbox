@@ -1389,16 +1389,17 @@ function saveSetup() {
     const fadeMacro   = document.getElementById('setup-fade-macro').value;
     const fadeKeypad  = document.getElementById('setup-fade-keypad').value;
     const soloLevelPct = document.getElementById('setup-solo-level').value;
-    const blackoutAuto = document.getElementById('setup-blackout-auto').value;
+    const blackoutAuto = "0"
     const autoSave    = document.getElementById('setup-autosave').checked ? "1" : "0";
     const fadeCurve = document.getElementById('setup-fade-curve').value;
     const ledmode = document.getElementById('setup-led').value;
+    const easyPin = document.getElementById('setup-easy-pin').value.padStart(4, '0').substring(0, 4);
     
 
     // Aggiorna soloLevel globale immediatamente
     soloLevel = Math.round(parseInt(soloLevelPct) * 2.55);
 
-    fetch(`/save_setup?fadesnap=${fadeSnap}&fademacro=${fadeMacro}&fadekeypad=${fadeKeypad}&sololevel=${soloLevelPct}&blackoutauto=${blackoutAuto}&autosave=${autoSave}&fadecurve=${fadeCurve}&ledmode=${ledmode}`)
+    fetch(`/save_setup?fadesnap=${fadeSnap}&fademacro=${fadeMacro}&fadekeypad=${fadeKeypad}&sololevel=${soloLevelPct}&blackoutauto=${blackoutAuto}&autosave=${autoSave}&fadecurve=${fadeCurve}&ledmode=${ledmode}&easypin=${easyPin}`)
         .then(r => r.text())
         .then(res => {
             if (res === "OK") console.log("Setup salvato");
@@ -1420,6 +1421,7 @@ function loadSetup() {
                 document.getElementById('setup-autosave').checked   = p[5] === "1";
                 document.getElementById('setup-fade-curve').value = p[6];
                 document.getElementById('setup-led').value = p[7];
+                document.getElementById('setup-easy-pin').value = p[8];
                 
                 // Aggiorna soloLevel globale
                 soloLevel = Math.round(parseInt(p[3]) * 2.55);

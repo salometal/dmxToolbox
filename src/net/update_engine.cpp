@@ -33,6 +33,7 @@ static String configToJson() {
     j += "\"autoSave\":"   + String(settings.autoSave ? "true" : "false") + ",";
     j += "\"fadeCurve\":"  + String(settings.fadeCurve)   + ",";
     j += "\"ledMode\":"    + String(settings.ledMode)     + ",";
+    j += "\"easyPin\":"    + String(settings.easyPin)     + ",";
 
     // Nomi snapshot
     j += "\"snapNames\":[";
@@ -126,6 +127,8 @@ static void applyJsonToConfig(const String& json) {
     v = extractInt("blackoutAuto");if (v >= 0) settings.blackoutAuto= (uint8_t)v;
     v = extractInt("fadeCurve");   if (v >= 0) settings.fadeCurve   = (uint8_t)v;
     v = extractInt("ledMode");     if (v >= 0) settings.ledMode     = (uint8_t)v;
+    
+    extractStr("easyPin", settings.easyPin, sizeof(settings.easyPin));
 
     settings.fadeSnap   = extractFloat("fadeSnap");
     settings.fadeMacro  = extractFloat("fadeMacro");

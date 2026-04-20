@@ -664,7 +664,8 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             s += "|" + String(settings.blackoutAuto);
             s += "|" + String(settings.autoSave ? "1" : "0");
             s += "|" + String(settings.fadeCurve);    
-            s += "|" + String(settings.ledMode); // indice 7         
+            s += "|" + String(settings.ledMode); // indice 7 
+            s += "|" + String(settings.easyPin); // indice 8        
             
             request->send(200, "text/plain", s);
         });
@@ -679,6 +680,12 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("autosave"))    settings.autoSave    = (request->getParam("autosave")->value() == "1");
             if (request->hasParam("fadecurve")) settings.fadeCurve = request->getParam("fadecurve")->value().toInt();
             if (request->hasParam("ledmode")) settings.ledMode = request->getParam("ledmode")->value().toInt();
+            if (request->hasParam("easypin")) {
+                String pin = request->getParam("easypin")->value();
+                pin = pin.substring(0, 4); // max 4 caratteri
+                Serial.print(pin);
+                strlcpy(settings.easyPin, pin.c_str(), sizeof(settings.easyPin));
+            }
             
             saveConfiguration();
             request->send(200, "text/plain", "OK");
@@ -713,6 +720,13 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             request->send(404, "text/plain", "update.html mancante");
         }
     });
+    server.on("/easy", HTTP_GET, [](AsyncWebServerRequest *request){
+    if (LittleFS.exists("/easy.html")) {
+        request->send(LittleFS, "/easy.html", "text/html");
+    } else {
+        request->send(404, "text/plain", "easy.html mancante");
+    }
+    }); 
     server.on("/factoryreset", HTTP_GET, [](AsyncWebServerRequest *request){
         memset(settings.ssid, 0, sizeof(settings.ssid));
         memset(settings.pass, 0, sizeof(settings.pass));

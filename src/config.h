@@ -53,6 +53,8 @@ struct Config {
 
     uint8_t fadeCurve = 1; // 0=Lineare, 1=S-Curve, 2=Equal Power, 3=Logaritmica, 4=Esponenziale
     uint8_t ledMode = 0; // 0=Always On, 1=Always Off, 2=Pulse
+    char easyPin[8]; // PIN 4 cifre accesso easy mode
+
 
 };
 
