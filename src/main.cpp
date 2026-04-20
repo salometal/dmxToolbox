@@ -129,6 +129,10 @@ void setupMDNS() {
         MDNS.addService("http", "tcp", 80);
         MDNS.addService("artnet", "udp", 6454);
         MDNS.addService("dmxtoolbox", "tcp", 80);
+        // TXT record per family discovery
+        MDNS.addServiceTxt("dmxtoolbox", "tcp", "type", "pro");
+        MDNS.addServiceTxt("dmxtoolbox", "tcp", "version", "2.5");
+        MDNS.addServiceTxt("dmxtoolbox", "tcp", "caps", "dmxin,artnet,keypad,snap");
     }
 }
 
