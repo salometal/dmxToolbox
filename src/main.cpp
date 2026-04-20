@@ -6,10 +6,10 @@
 #include <ESPAsyncWebServer.h>
 #include <ESPmDNS.h>
 #include "config.h"
-#include "artnet.h"
-#include "dmx_logic.h"
-#include "network_logic.h"
-#include "keypad_logic.h"
+#include "core/artnet_engine.h"
+#include "core/dmx_engine.h"
+#include "net/network_engine.h"
+#include "net/keypad_engine.h"
 #include "hw/hw_manager.h"
 
 
@@ -193,11 +193,7 @@ if(LittleFS.begin(true)) {
 
 }
 
-// --- AGGIUNGI QUESTE RIGHE QUI ---
-//Serial.println("[DEBUG] Forzatura temporanea MODO 0 per test stabilità...");
-//settings.mode = 0; 
-//settings.isRunning = false; // Fermiamo anche l'invio automatico per sicurezza
-// ---------------------------------
+
 
     // --- PROTEZIONE ANTI-ZERO E LIMITI ---
     // Se il file non esiste o è corrotto, settings.refreshRate potrebbe essere 0
@@ -277,19 +273,13 @@ void loop() {
     
     // Gestione Art-Net UDP dinamica basata sul flag udpActive
     if (settings.isRunning && settings.mode == 1) {
-    /*     if (!udpActive) {
-            if (udp.begin(ARTNET_PORT)) {
-                udpActive = true;
-                Serial.println("[UDP] Socket Art-Net APERTO");
-            }
-        } */
+   
     } else {
         if (udpActive) {
-            Serial.println("[DEBUG-CRASH] Sto per eseguire udp.stop()...");
-            Serial.flush(); // Forza l'invio immediato al PC
+         
             udp.stop();
             udpActive = false;
-            Serial.println("[UDP] Socket Art-Net CHIUSO");
+            
         }
     }
 

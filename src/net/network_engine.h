@@ -11,6 +11,5 @@
 void saveConfiguration();
 void setupWebServer();
 void networkTask(void *pvParameters);
-void setupUpdateEndpoints(AsyncWebServer &srv);
 
 #endif

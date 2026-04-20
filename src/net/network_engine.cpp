@@ -1,4 +1,3 @@
-
 #include <ESPAsyncWebServer.h>
 #include <WiFiUdp.h>
 #include <LittleFS.h>
@@ -6,11 +5,11 @@
 #include <ESPmDNS.h>
 #include "network_engine.h"
 #include "core/scene_manager.h"
-#include "config.h"
-#include "artnet.h" // Inclusione per usare sendArtDmx e readArtDmx
-#include "keypad_logic.h"
+#include "core/artnet_engine.h"
+#include "net/keypad_engine.h"
 #include "update_engine.h"
-#include"../hw/hw_manager.h"
+#include "../hw/hw_manager.h"
+#include "../config.h"
 #include "lwip/udp.h"
 
 
@@ -28,34 +27,6 @@ extern bool wasRunningBeforeKeypad;
 bool blackoutActive = false;
 extern uint8_t *keypad_dmx_buffer;
 
-
-
-void debugNetworkSockets() {
-    // Accediamo alla lista globale dei Protocol Control Blocks (PCB) UDP di LwIP
-    extern struct udp_pcb *udp_pcbs; 
-    struct udp_pcb *pcb;
-    bool foundArtNet = false;
-
-    Serial.println("\n--- [DIAGNOSTICA RETE LwIP] ---");
-    Serial.printf("Indirizzo Memoria Oggetto UDP: %p\n", &udp);
-    
-    int count = 0;
-    for (pcb = udp_pcbs; pcb != NULL; pcb = pcb->next) {
-        count++;
-        Serial.printf("[%d] Socket Attivo -> Porta Locale: %d | Porta Remota: %d", 
-                      count, pcb->local_port, pcb->remote_port);
-        
-        if (pcb->local_port == 6454) {
-            foundArtNet = true;
-            Serial.print(" <--- !!! PORTA 6454 SEQUESTRATA !!!");
-        }
-        Serial.println();
-    }
-
-    if (count == 0) Serial.println("Nessun socket UDP attivo trovato.");
-    if (!foundArtNet) Serial.println("Porta 6454 libera a livello di sistema.");
-    Serial.println("--------------------------------\n");
-}
 
 
 bool checkArtNetPresence() {
@@ -811,7 +782,6 @@ void networkTask(void *pvParameters) {
         // Log minimo per non intasare ma vedere il flusso
         static uint32_t lastLog = 0;
         if (millis() - lastLog > 2000) {
-            Serial.printf("[DEBUG] Ultimo packetSize visto riga 620 : %d\n", packetSize);
             lastLog = millis();
         }
 

@@ -32,7 +32,6 @@ void executeFixture(int pivot, int valDMX, String offsets) {
         int targetChan = pivot + (offVal - 1);
         
         if (targetChan >= 1 && targetChan <= 512) {
-            Serial.printf("  [DMX Out] Canale %d -> Valore %d\n", targetChan, valDMX);
             if (settings.fadeKeypad > 0) {
                 keypad_target_buffer[targetChan] = (uint8_t)valDMX;
             } else {
@@ -106,7 +105,6 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
             currentPivot = 1;
             memset(keypad_dmx_buffer, 0, 513);
             memset(keypad_target_buffer, 0, 513); // ← aggiunto
-            Serial.println("[SYSTEM] Blackout & Clear Totale");
             xSemaphoreGive(dmx_mutex);
             mutex_owner = 0;
             return;
@@ -115,7 +113,6 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
         if (type == "SOLO") {
             isSoloActive = !isSoloActive;
             soloLevel = settings.soloLevel; // Reset 70%
-            Serial.printf("[SYSTEM] Modalità SOLO: %s\n", isSoloActive ? "ON" : "OFF");
             xSemaphoreGive(dmx_mutex);
             mutex_owner = 0;
             return;
@@ -177,7 +174,6 @@ void processStandaloneCommand(String cmd, String type, String offsetStr, int spa
                         lastGroupCmd = cmd;
                         executeFixture(currentPivot, soloLevel, offsetStr);
                     }
-                    Serial.printf("[SOLO] Attivo Pivot: %d\n", currentPivot);
                 }
 }
             else {

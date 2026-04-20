@@ -1,6 +1,7 @@
 
 #include "dmx_engine.h" 
 #include"../hw/hw_manager.h"
+#include "../core/artnet_engine.h"
 #include <esp_dmx.h>
 #include <esp_task_wdt.h>
 
@@ -16,8 +17,7 @@ extern volatile int mutex_owner;
 extern bool keypadModeEnabled;
 
 
-// Aggiungiamo il riferimento alla funzione di invio (che deve essere in un .h o sopra il task)
-void sendArtDmx(uint16_t universe, uint8_t* dmxData);
+
 
 void dmxTask(void *pvParameters) {
     while (!dmxDriverInstalled || dmx_mutex == NULL || main_dmx_buffer == NULL) {
@@ -31,7 +31,6 @@ void dmxTask(void *pvParameters) {
     
     uint32_t lastSnifferTime = 0;
     uint32_t lastHeartbeat = 0;
-    uint32_t lastOverrideLog = 0;
     TickType_t xLastWakeTime = xTaskGetTickCount();
     static uint8_t lastPinMode = 255;
 
@@ -75,12 +74,7 @@ if (keypadModeEnabled) {
             // Invio Art-Net
             sendArtDmx(settings.universe, local_buffer);
 
-            // Log di stato (usando la variabile lastOverrideLog che devi avere in alto)
-            if (millis() - lastOverrideLog > 2000) {
-                //Serial.println("[CORE 0] Keypad Mode Active - Override ON");
-                lastOverrideLog = millis();
-            }
-
+           
             // Timing basato sul Refresh Rate
             uint32_t hz = (settings.refreshRate > 0) ? settings.refreshRate : 30;
             vTaskDelayUntil(&xLastWakeTime, pdMS_TO_TICKS(1000 / hz));
@@ -97,10 +91,10 @@ if (keypadModeEnabled) {
 
                 if (lastPinMode != 0) {
                         setRelay(RELAY_ON);
-                        Serial.println("relay ON");
+                
                         dmx_set_pin(dmxPort, DMX_TX_PIN, DMX_RX_PIN, -1);
                         lastPinMode = 0;
-                        Serial.println("[DMX] Pin RX abilitato per Modo 0");
+                       
                     }
             dmx_packet_t packet;
             // Aspettiamo il pacchetto fisico in ingresso
@@ -129,11 +123,11 @@ if (keypadModeEnabled) {
             // MODO 1: INVIO (ART-NET o STANDALONE -> DMX)
                 if (lastPinMode != 1) {
                         setRelay(RELAY_OFF);
-                        Serial.println("RELAY off");
+                        
 
                         dmx_set_pin(dmxPort, DMX_TX_PIN, -1, -1);
                         lastPinMode = 1;
-                        Serial.println("[DMX] Pin RX disabilitato per Modo 1");
+                      
                     }
 
 
