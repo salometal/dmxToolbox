@@ -10,5 +10,6 @@ void saveMacro(int id, const char* name);
 void runMacro(int id);
 void saveSnap(int id, const char* name);
 void runSnap(int id);
+void runSnapExternal(int id, float fade);
 
 #endif

@@ -33,8 +33,7 @@ static String configToJson() {
     j += "\"autoSave\":"   + String(settings.autoSave ? "true" : "false") + ",";
     j += "\"fadeCurve\":"  + String(settings.fadeCurve)   + ",";
     j += "\"ledMode\":"    + String(settings.ledMode)     + ",";
-    j += "\"easyPin\":"    + String(settings.easyPin)     + ",";
-
+    j += "\"easyPin\":\""  + String(settings.easyPin)     + "\",";
     // Nomi snapshot
     j += "\"snapNames\":[";
     for (int i = 0; i < 10; i++) {
