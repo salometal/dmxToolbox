@@ -6,6 +6,7 @@ extern bool keypadModeEnabled;
 extern bool artnetConfirmed;
 extern bool sceneActive;
 extern bool blackoutActive;
+extern void saveConfiguration();
 
 bool ultimoStato = HIGH;
 volatile bool identifyRunning = false;
@@ -82,12 +83,88 @@ void hw_init() {
 // --- LOOP ---
 void hw_loop() {
     // Pulsante
-    bool statoAttuale = digitalRead(BTN_PIN);
-    if (ultimoStato == HIGH && statoAttuale == LOW) {
-        hw_identify();
-        delay(50); // debounce
+// --- PULSANTE CON LOGICA A TEMPO ---
+bool statoAttuale = digitalRead(BTN_PIN);
+static uint32_t pressStart = 0;
+static bool actionDone = false;
+
+if (statoAttuale == LOW) {
+    if (ultimoStato == HIGH) {
+        pressStart = millis();
+        actionDone = false;
     }
-    ultimoStato = statoAttuale;
+
+    uint32_t duration = millis() - pressStart;
+
+    // Feedback visivo progressivo mentre si tiene premuto
+    if (duration >= 10000 && !actionDone) {
+        // Lampeggio rosso — segnala che al rilascio farà factory reset
+        static uint32_t lastBlink = 0;
+        static bool blinkOn = false;
+        if (millis() - lastBlink > 200) {
+            blinkOn = !blinkOn;
+            lastBlink = millis();
+            led.setPixelColor(0, blinkOn ? led.Color(255, 0, 0) : led.Color(0, 0, 0));
+            led.show();
+        }
+    } else if (duration >= 5000 && !actionDone) {
+        // Lampeggio giallo — segnala che al rilascio farà wifi reset
+        static uint32_t lastBlink2 = 0;
+        static bool blinkOn2 = false;
+        if (millis() - lastBlink2 > 300) {
+            blinkOn2 = !blinkOn2;
+            lastBlink2 = millis();
+            led.setPixelColor(0, blinkOn2 ? led.Color(255, 200, 0) : led.Color(0, 0, 0));
+            led.show();
+        }
+    }
+
+} else {
+    // Pulsante rilasciato — esegui azione in base alla durata
+    if (ultimoStato == LOW && !actionDone) {
+        actionDone = true;
+        uint32_t duration = millis() - pressStart;
+
+        if (duration >= 10000) {
+            // Factory reset completo
+            for (int i = 0; i < 6; i++) {
+                led.setPixelColor(0, led.Color(255, 0, 0));
+                led.show(); delay(100);
+                led.clear();
+                led.show(); delay(100);
+            }
+            memset(&settings, 0, sizeof(Config));
+            strlcpy(settings.hostname, "dmxtoolbox", sizeof(settings.hostname));
+            settings.refreshRate = 25;
+            strlcpy(settings.easyPin, "0000", sizeof(settings.easyPin));
+            saveConfiguration();
+            Serial.println("[BTN] Factory reset eseguito. Riavvio...");
+            delay(500);
+            ESP.restart();
+
+        } else if (duration >= 5000) {
+            // Reset solo WiFi
+            for (int i = 0; i < 4; i++) {
+                led.setPixelColor(0, led.Color(255, 200, 0));
+                led.show(); delay(150);
+                led.clear();
+                led.show(); delay(150);
+            }
+            memset(settings.ssid, 0, sizeof(settings.ssid));
+            memset(settings.pass, 0, sizeof(settings.pass));
+            saveConfiguration();
+            Serial.println("[BTN] Reset WiFi eseguito. Riavvio...");
+            delay(500);
+            ESP.restart();
+
+        } else if (duration < 2000) {
+            // Click breve — identify
+            hw_identify();
+        }
+    }
+}
+
+ultimoStato = statoAttuale;
 
  if (identifyRunning) return;
     // LED spento — nessuna logica colore
