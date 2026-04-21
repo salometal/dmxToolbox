@@ -94,3 +94,32 @@ void runSnap(int id) {
     }
     
 }
+void runSnapExternal(int id, float fade) {
+    String fileName = "/s" + String(id) + ".dat";
+
+    File f = LittleFS.open(fileName, "r");
+    if (!f) return;
+
+    if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
+        preBlackoutRunning = false;
+
+        int bytesRead = f.read(main_target_buffer, 513);
+        f.close();
+
+        if (fade > 0.0f) {
+            memcpy(crossfade_buffer_a, main_dmx_buffer, 513);
+            currentFadeTime    = fade;
+            crossfadeProgress  = 0.0f;
+            crossfadeActive    = true;
+        } else {
+            memcpy(main_dmx_buffer, main_target_buffer, 513);
+            crossfadeActive = false;
+        }
+
+        preBlackoutRunning = settings.isRunning;
+        sceneActive        = true;
+        settings.isRunning = false;
+
+        xSemaphoreGive(dmx_mutex);
+    }
+}

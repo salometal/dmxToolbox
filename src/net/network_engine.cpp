@@ -10,6 +10,7 @@
 #include "update_engine.h"
 #include "../hw/hw_manager.h"
 #include "../config.h"
+#include "controller_engine.h"
 #include "lwip/udp.h"
 
 
@@ -739,7 +740,8 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         delay(1500);
         ESP.restart();
     });
-
+    
+setupControllerEndpoints(server);
 setupUpdateEndpoints(server); 
     // --- 2. GESTIONE FILESYSTEM ---
     server.serveStatic("/", LittleFS, "/");
