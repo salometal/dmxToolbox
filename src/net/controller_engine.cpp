@@ -13,6 +13,7 @@ extern bool blackoutActive;
 extern bool preBlackoutRunning;
 extern float crossfadeProgress;
 extern bool crossfadeActive;
+extern int8_t activeSnapId;
 extern bool keypadModeEnabled;
 
 void setupControllerEndpoints(AsyncWebServer &server) {
@@ -33,6 +34,8 @@ void setupControllerEndpoints(AsyncWebServer &server) {
         doc["heap"]      = (int)(ESP.getFreeHeap() / 1024);
         doc["uptime"]    = (uint32_t)(millis() / 1000);
         doc["hostname"]  = settings.hostname;
+        doc["snapId"] = activeSnapId;
+        doc["keypad"] = keypadModeEnabled;
 
         String out;
         serializeJson(doc, out);

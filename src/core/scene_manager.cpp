@@ -11,6 +11,7 @@ extern bool keypadFading;
 extern float keypadFadeProgress;
 extern float currentFadeTime;        
 extern bool preBlackoutRunning;
+extern int8_t activeSnapId;
 
 void saveMacro(int id, const char* name) {
     strlcpy(settings.macros[id], name, sizeof(settings.macros[id]));
@@ -92,7 +93,7 @@ void runSnap(int id) {
     }else {
        
     }
-    
+    activeSnapId = id;
 }
 void runSnapExternal(int id, float fade) {
     String fileName = "/s" + String(id) + ".dat";
@@ -122,4 +123,5 @@ void runSnapExternal(int id, float fade) {
 
         xSemaphoreGive(dmx_mutex);
     }
+activeSnapId = id;
 }

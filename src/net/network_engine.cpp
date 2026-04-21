@@ -26,6 +26,7 @@ extern volatile int mutex_owner;
 extern bool keypadModeEnabled;
 extern bool wasRunningBeforeKeypad;
 bool blackoutActive = false;
+int8_t activeSnapId = -1;
 extern uint8_t *keypad_dmx_buffer;
 
 
@@ -508,10 +509,11 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         });
         // --- ROTTA SALVATAGGIO SNAP ---
         server.on("/save_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
-             if (!settings.isRunning && !sceneActive) {
-        Serial.println("[SNAP] Impossibile salvare in standby");
-        return;
-    }
+            if (!settings.isRunning && !sceneActive) {
+            Serial.println("[SNAP] Impossibile salvare in standby");
+            request->send(400, "text/plain", "ERR_STANDBY");
+            return;
+        }
             if (request->hasParam("id") && request->hasParam("name")) {
                 int id = request->getParam("id")->value().toInt();
                 String name = request->getParam("name")->value();
@@ -541,7 +543,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         server.on("/release_snap", HTTP_GET, [](AsyncWebServerRequest *request){
             sceneActive = false;
             blackoutActive = false;
-            
+            activeSnapId = -1;
             // preBlackoutRunning è già stato salvato al momento del blackout/snap
             bool wasRunning = preBlackoutRunning;
             settings.isRunning = preBlackoutRunning;

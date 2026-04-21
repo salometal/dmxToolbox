@@ -77,6 +77,7 @@ extern uint8_t *main_target_buffer;
 extern float keypadFadeProgress;
 extern uint8_t keypad_fade_start[];
 extern bool keypadFading;
+extern int8_t activeSnapId;
 
 // AGGIUNGI QUESTI: Servono al loop() per gestire i task
 extern TaskHandle_t dmxTaskHandle;
