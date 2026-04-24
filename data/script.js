@@ -64,244 +64,177 @@ function updateStatus() {
     if (isScanning) return;
 
     fetch('/status')
-        .then(r => r.text())
-        .then(data => {
-            const p = data.split("|");
-         if (p.length >= 11) {
-                const ssid = p[0];// SSID 
-                currentIP = p[1]; // Salva l'IP reale
-                const mode = p[2]; // 0, 1, 2
-                const run  = p[3]; // 0=STOP, 1=START
-                const tx   = p[4]; //unicast=1, broadcast=0
-                currentUniverse = p[5]; // Indice 5
-                currentRefresh  = p[6]; // Indice 6
-                currentSubnet   = p[7]; // Indice 7
-                const targetIP = p[8]; // Indice 8 (IP di destinazione per unicast)
-                const savedHostname = p[9]; //  Hostname del nodo 
-                const keypadActive = (p[10] === "1"); //0 1 keypad
-                // --- GESTIONE MACRO (Indice 11) ---
-                if (p[11] !== undefined) {
-                    // Assicuriamoci che l'oggetto settings esista
-                    if (typeof settings === 'undefined') window.settings = {};
-                    settings.macros = p[11].split(',');
-                    
-                    const modal = document.getElementById('macro-modal');
-                    if (modal && modal.style.display === 'flex') {
-                        renderMacroGrid();
-                    }
-                } 
+        .then(r => r.json())
+        .then(d => {
+            currentIP        = d.ip;
+            currentUniverse  = d.universe;
+            currentRefresh   = String(d.refresh);
+            currentSubnet    = d.subnet;
 
-                // Sincronizza il toggle con lo stato reale del dispositivo
-                    const toggle = document.getElementById('keypadToggle');
-                    if (toggle && toggle.checked !== keypadActive) {
-                        toggle.checked = keypadActive;
-                        // Aggiorna anche il display del comando
-                        const display = document.getElementById('cmd-display');
-                        if (display) {
-                            if (!keypadActive) {
-                                display.innerText = "OFF";
-                                display.style.color = "#ff4444";
-                                display.style.opacity = "0.6";
-                            } else {
-                                display.innerText = "CHAN _";
-                                display.style.color = "";
-                                display.style.opacity = "1";
-                            }
-                        }
-                    }
-                // --- GESTIONE SNAP (Indice 12) ---
-                if (p[12] !== undefined) {
-                    // Assicuriamoci che l'oggetto settings esista (già fatto sopra, ma per sicurezza)
-                    if (typeof settings === 'undefined') window.settings = {};
-                    
-                    // Splittiamo i nomi degli snap ricevuti dall'ESP32
-                    settings.snaps = p[12].split(',');
-                    
-                    // Aggiorniamo la griglia degli Snap solo se il modal è visibile
-                    const snapModal = document.getElementById('snap-modal');
-                    if (snapModal && snapModal.style.display === 'flex') {
-                        renderSnapGrid();
+            const ssid           = d.ssid;
+            const mode           = d.mode;
+            const run            = d.running;
+            const tx             = d.unicast;
+            const targetIP       = d.targetIp;
+            const savedHostname  = d.hostname;
+            const keypadActive   = d.keypad;
+            const artnetConfirmed = d.artnet;
+            const sceneActive    = d.scene;
+            const blackoutActive = d.blackout;
+
+            // Macro
+            if (d.macros) {
+                if (typeof settings === 'undefined') window.settings = {};
+                settings.macros = d.macros;
+                const modal = document.getElementById('macro-modal');
+                if (modal && modal.style.display === 'flex') renderMacroGrid();
+            }
+
+            // Scene
+            if (d.scenes) {
+                if (typeof settings === 'undefined') window.settings = {};
+                settings.snaps = d.scenes;
+                const snapModal = document.getElementById('snap-modal');
+                if (snapModal && snapModal.style.display === 'flex') renderSnapGrid();
+            }
+
+            // Sync keypad toggle
+            const toggle = document.getElementById('keypadToggle');
+            if (toggle && toggle.checked !== keypadActive) {
+                toggle.checked = keypadActive;
+                const display = document.getElementById('cmd-display');
+                if (display) {
+                    if (!keypadActive) {
+                        display.innerText = "OFF";
+                        display.style.color = "#ff4444";
+                        display.style.opacity = "0.6";
+                    } else {
+                        display.innerText = "CHAN _";
+                        display.style.color = "";
+                        display.style.opacity = "1";
                     }
                 }
-        
-                // --- Badge Stato Nodo (AGGIORNATO CON PRIORITÀ KEYPAD) ---
-                    const modeBadge = document.getElementById("mode-badge");
-                    const modes = ["DMX -> ARTNET", "ARTNET -> DMX", "STANDALONE"];
-               
-                  const artnetConfirmed = p[13] === "1";
-                  const sceneActive = p[14] === "1";
-                  const blackoutActive = p[15] === "1";
+            }
 
-                  const sceneBadge = document.getElementById("scene-badge");
+            // Badge modo
+            const modeBadge = document.getElementById("mode-badge");
+            const modes = ["DMX -> ARTNET", "ARTNET -> DMX", "STANDALONE"];
 
-                if (blackoutActive) {
-                    modeBadge.innerText = "⬛ BLACKOUT";
-                    modeBadge.style.backgroundColor = "#000";
-                    modeBadge.style.border = "1px solid #ff4444";
-                    modeBadge.style.cursor = "pointer";
-                    modeBadge.onclick = releaseScene;
-                } else if (sceneActive) {
-                    modeBadge.innerText = "🎬 SCENE STOP";
-                    modeBadge.style.backgroundColor = "#ff4444";
-                    modeBadge.style.cursor = "pointer";
-                    modeBadge.style.border = "";
-                    modeBadge.onclick = releaseScene;
-                } else if (keypadActive)  {
-                    // PRIORITÀ ASSOLUTA AL KEYPAD
-                    modeBadge.innerText = "KEYPAD";
-                    modeBadge.style.border = "";
-                    modeBadge.style.backgroundColor = "#4b48ee"; // Usiamo l'azzurro per distinguerlo dal verde Art-Net
-                } else if (run === "0") {
-                    // Stato al BOOT o FERMO
-                    modeBadge.innerText = "NODO: NON ATTIVO";
-                    modeBadge.style.border = "";
-                    modeBadge.style.backgroundColor = "#6c757d"; // Grigio
-                }  else if (mode === "1" && run === "1" && !artnetConfirmed) {
-                    modeBadge.innerText = "🔍 RICERCA SEGNALE...";
-                    modeBadge.style.backgroundColor = "#ff9800";
-                    modeBadge.style.border = "";
-                        
-                }else {
-                    // Stato in ESECUZIONE NORMALE
-                    modeBadge.innerText = "LIVE: " + (modes[mode] || "IDLE");
-                    modeBadge.style.border = "";
-                    modeBadge.style.backgroundColor = "var(--success)"; // Verde
-                }
-               
-               
-                    // --- AGGIORNAMENTO TENDINE REFRESH ---
-                // Cerchiamo le tendine in entrambi i pannelli e forziamo il valore
-                const refreshSelects = document.querySelectorAll('select[name="refresh"]');
-             if (currentRefresh && currentRefresh !== "0") {
+            if (blackoutActive) {
+                modeBadge.innerText = "⬛ BLACKOUT";
+                modeBadge.style.backgroundColor = "#000";
+                modeBadge.style.border = "1px solid #ff4444";
+                modeBadge.style.cursor = "pointer";
+                modeBadge.onclick = releaseScene;
+            } else if (sceneActive) {
+                modeBadge.innerText = "🎬 SCENE STOP";
+                modeBadge.style.backgroundColor = "#ff4444";
+                modeBadge.style.cursor = "pointer";
+                modeBadge.style.border = "";
+                modeBadge.onclick = releaseScene;
+            } else if (keypadActive) {
+                modeBadge.innerText = "KEYPAD";
+                modeBadge.style.border = "";
+                modeBadge.style.backgroundColor = "#4b48ee";
+                modeBadge.onclick = null;
+            } else if (!run) {
+                modeBadge.innerText = "NODO: NON ATTIVO";
+                modeBadge.style.border = "";
+                modeBadge.style.backgroundColor = "#6c757d";
+                modeBadge.onclick = null;
+            } else if (mode === 1 && run && !artnetConfirmed) {
+                modeBadge.innerText = "🔍 RICERCA SEGNALE...";
+                modeBadge.style.backgroundColor = "#ff9800";
+                modeBadge.style.border = "";
+                modeBadge.onclick = null;
+            } else {
+                modeBadge.innerText = "LIVE: " + (modes[mode] || "IDLE");
+                modeBadge.style.border = "";
+                modeBadge.style.backgroundColor = "var(--success)";
+                modeBadge.onclick = null;
+            }
+
+            // Refresh select
+            const refreshSelects = document.querySelectorAll('select[name="refresh"]');
+            if (currentRefresh && currentRefresh !== "0") {
                 refreshSelects.forEach(select => {
-                    // Aggiorna solo se l'utente NON sta cliccando sulla tendina
                     if (document.activeElement !== select) {
-                        // Controlliamo se il valore inviato dall'ESP esiste tra le opzioni
-                        // Questo evita che il select diventi vuoto se l'ESP manda un numero non previsto
                         const optionExists = Array.from(select.options).some(opt => opt.value === currentRefresh);
-                        
-                        if (optionExists && select.value !== currentRefresh) {
-                            select.value = currentRefresh;
-                        }
+                        if (optionExists && select.value !== currentRefresh) select.value = currentRefresh;
                     }
                 });
-             } 
-                    // Disabilita snapshot se in standby
-                    const snapBtn = document.querySelector('.btn-snap');
-                    if (snapBtn) {
-                        snapBtn.disabled = (run === "0" && !sceneActive);
-                        snapBtn.style.opacity = snapBtn.disabled ? '0.4' : '1';
-                    }
-                
-                // 1. Popola l'IP nella nuova sezione Dispositivo
-                const currentIpDisplay = document.getElementById("current-ip");
-                if (currentIpDisplay) currentIpDisplay.innerText = currentIP;
+            }
 
-                // 2. Popola l'input Hostname solo se non ci sta scrivendo l'utente
-                const hostInput = document.getElementById('hostname-input');
-                if (hostInput && document.activeElement !== hostInput) {
-                    hostInput.value = savedHostname || "dmxtoolbox";
-                    // Chiamiamo la tua funzione di validazione per aggiornare l'anteprima
-                    validateHostname(hostInput);
-                }
-                // --- Badge Header Standard ---
-                document.getElementById("ssid-badge").innerText = "WIFI: " + ssid;
-                const txBadge = document.getElementById("tx-badge");
+            // IP e hostname
+            const currentIpDisplay = document.getElementById("current-ip");
+            if (currentIpDisplay) currentIpDisplay.innerText = currentIP;
 
-               if(txBadge) {
-                        if (tx === "1") {
-                            txBadge.innerText = "UCAST: " + targetIP;
-                            txBadge.style.backgroundColor = "#ffc107"; // Giallo (più visibile per Unicast)
-                            txBadge.style.color = "#000"; // Testo nero su giallo
-                        } else {
-                            txBadge.innerText = "BCAST";
-                            txBadge.style.backgroundColor = "#6c757d"; // Grigio
-                        }
-                }
+            const hostInput = document.getElementById('hostname-input');
+            if (hostInput && document.activeElement !== hostInput) {
+                hostInput.value = savedHostname || "dmxtoolbox";
+                validateHostname(hostInput);
+            }
 
-                
-                // --- Pannelli Interni (Testo "ATTIVO" / "IDLE") ---
-                // Aggiorniamo solo se esistono gli elementi
-                const s1 = document.getElementById("status-text-1");
-                const s2 = document.getElementById("status-text-2");
-                
-                if (s1) {
-                    s1.innerText = (mode === "0" && run === "1") ? "ATTIVO" : "IDLE";
-                    s1.style.color = (mode === "0" && run === "1") ? "var(--success)" : "";
-                }
-                if (s2) {
-                    s2.innerText = (mode === "1" && run === "1") ? "ATTIVO" : "IDLE";
-                    s2.style.color = (mode === "1" && run === "1") ? "var(--success)" : "";
-                }
-            // AGGIORNA SISTEMA VAL
-            const ipDisplay = document.getElementById("val-ip");
-            if (ipDisplay) ipDisplay.innerText = currentIP;
-
-            const universeDisplay = document.getElementById("val-universe");
-            if (universeDisplay) universeDisplay.innerText = currentUniverse;
-
-            const modeDisplay = document.getElementById("val-mode");
-            if (modeDisplay) {
-                if (keypadActive) {
-                    modeDisplay.innerText = "KEYPAD";
-                } else if (run === "0") {
-                    modeDisplay.innerText = "STANDBY";
+            // Badge header
+            document.getElementById("ssid-badge").innerText = "WIFI: " + ssid;
+            const txBadge = document.getElementById("tx-badge");
+            if (txBadge) {
+                if (tx) {
+                    txBadge.innerText = "UCAST: " + targetIP;
+                    txBadge.style.backgroundColor = "#ffc107";
+                    txBadge.style.color = "#000";
                 } else {
-                    const modeLabels = ["DMX→ART", "ART→DMX", "STANDALONE"];
-                    modeDisplay.innerText = modeLabels[parseInt(mode)] || "--";
+                    txBadge.innerText = "BCAST";
+                    txBadge.style.backgroundColor = "#6c757d";
+                    txBadge.style.color = "";
                 }
             }
-            const uptime = p[16];
-            const fsPct  = p[17];
 
-            const valUp = document.getElementById("val-up");
-            if (valUp && uptime) valUp.innerText = formatUptime(parseInt(uptime));
+            // Status interni pannelli
+            const s1 = document.getElementById("status-text-1");
+            const s2 = document.getElementById("status-text-2");
+            if (s1) { s1.innerText = (mode === 0 && run) ? "ATTIVO" : "IDLE"; s1.style.color = (mode === 0 && run) ? "var(--success)" : ""; }
+            if (s2) { s2.innerText = (mode === 1 && run) ? "ATTIVO" : "IDLE"; s2.style.color = (mode === 1 && run) ? "var(--success)" : ""; }
 
-            const valFs = document.getElementById("val-fs");
-            if (valFs && fsPct !== undefined) valFs.innerText = fsPct + "% Utilizzata";
-
+            // Pannello sistema
+            const valIp = document.getElementById("val-ip");
+            if (valIp) valIp.innerText = currentIP;
+            const valUniverse = document.getElementById("val-universe");
+            if (valUniverse) valUniverse.innerText = currentUniverse;
             const valHz = document.getElementById("val-hz");
             if (valHz) valHz.innerText = currentRefresh + " Hz";
+            const valUp = document.getElementById("val-up");
+            if (valUp && d.uptime) valUp.innerText = formatUptime(d.uptime);
+            const valFs = document.getElementById("val-fs");
+            if (valFs) valFs.innerText = d.fs + "% Utilizzata";
+            const modeDisplay = document.getElementById("val-mode");
+            if (modeDisplay) {
+                if (keypadActive) modeDisplay.innerText = "KEYPAD";
+                else if (!run) modeDisplay.innerText = "STANDBY";
+                else { const modeLabels = ["DMX→ART", "ART→DMX", "STANDALONE"]; modeDisplay.innerText = modeLabels[mode] || "--"; }
+            }
 
-
-
-                                // --- Gestione Dinamica Pulsanti Controllo ---
-                const btnDmx = document.getElementById("btn-ctrl-dmxin");
-                const btnArtNet = document.getElementById("btn-ctrl-artnetin");
-
-                // Reset iniziale degli stili (Stato Default: Verde/Attiva)
-                if (btnDmx) {
-                    btnDmx.innerText = "AVVIA TRASMISSIONE";
-                    btnDmx.classList.remove("btn-danger"); // Assicurati di avere questa classe nel CSS
-                }
-                if (btnArtNet) {
-                    btnArtNet.innerText = "AVVIA RICEZIONE";
-                    btnArtNet.classList.remove("btn-danger");
-                }
-
-                // Se il nodo sta correndo, modifichiamo SOLO il pulsante della modalità attiva
-                if (run === "1" && !keypadActive) {
-                    if (mode === "0" && btnDmx) {
-                        btnDmx.innerText = "FERMA TRASMISSIONE";
-                        btnDmx.classList.add("btn-danger");
-                    } 
-                    else if (mode === "1" && btnArtNet) {
-                        if (!artnetConfirmed) {
-                              btnArtNet.innerHTML = '<span class="spinner"></span> RICERCA SEGNALE... (Ferma)';
-                btnArtNet.classList.add("btn-searching");
-                
-                           
-                        } else {
-                            btnArtNet.innerText = "FERMA RICEZIONE";
-                            btnArtNet.classList.remove("btn-searching");
-                            btnArtNet.classList.add("btn-danger");
-                        }
-                        btnArtNet.classList.add("btn-danger");
+            // Pulsanti controllo
+            const btnDmx = document.getElementById("btn-ctrl-dmxin");
+            const btnArtNet = document.getElementById("btn-ctrl-artnetin");
+            if (btnDmx) { btnDmx.innerText = "AVVIA TRASMISSIONE"; btnDmx.classList.remove("btn-danger"); }
+            if (btnArtNet) { btnArtNet.innerText = "AVVIA RICEZIONE"; btnArtNet.classList.remove("btn-danger"); }
+            if (run && !keypadActive) {
+                if (mode === 0 && btnDmx) { btnDmx.innerText = "FERMA TRASMISSIONE"; btnDmx.classList.add("btn-danger"); }
+                else if (mode === 1 && btnArtNet) {
+                    if (!artnetConfirmed) {
+                        btnArtNet.innerHTML = '<span class="spinner"></span> RICERCA SEGNALE... (Ferma)';
+                        btnArtNet.classList.add("btn-searching");
+                    } else {
+                        btnArtNet.innerText = "FERMA RICEZIONE";
+                        btnArtNet.classList.remove("btn-searching");
                     }
+                    btnArtNet.classList.add("btn-danger");
                 }
             }
-        
-                        }).catch(e => console.error("Errore status:", e));
+
+        })
+        .catch(e => console.error("Errore status:", e));
 }
 
 

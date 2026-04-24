@@ -3,6 +3,7 @@
 #include <LittleFS.h>
 #include <esp_task_wdt.h>
 #include <ESPmDNS.h>
+#include <ArduinoJson.h>
 #include "network_engine.h"
 #include "core/scene_manager.h"
 #include "core/artnet_engine.h"
@@ -261,57 +262,56 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
     server.on("/wifi_list", HTTP_GET, [](AsyncWebServerRequest *request){
         request->send(200, "text/plain", wifiScanResults);
     });
-// Status di sistema
-    server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
-        String currentSSID = (WiFi.status() == WL_CONNECTED) ? WiFi.SSID() : "DISCONNECTED";
-        String currentIP = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : WiFi.softAPIP().toString();
-        String currentSubnet = (WiFi.status() == WL_CONNECTED) ? WiFi.subnetMask().toString() : "255.255.255.0";
+        // Status di sistema
+        server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request){
+            String currentSSID = (WiFi.status() == WL_CONNECTED) ? WiFi.SSID() : "DISCONNECTED";
+            String currentIP   = (WiFi.status() == WL_CONNECTED) ? WiFi.localIP().toString() : WiFi.softAPIP().toString();
+            String currentSubnet = (WiFi.status() == WL_CONNECTED) ? WiFi.subnetMask().toString() : "255.255.255.0";
+            String targetIpStr = String(settings.target_ip[0]) + "." + String(settings.target_ip[1]) + "." +
+                                String(settings.target_ip[2]) + "." + String(settings.target_ip[3]);
 
-        String s = currentSSID;   //0
-        s += "|" + currentIP;     //1
-        s += "|" + String(settings.mode);   //2
-        s += "|" + String(settings.isRunning ? "1" : "0"); //3
-        s += "|" + String(settings.use_unicast);  //4
-        s += "|" + String(settings.universe);    //5
-        s += "|" + String(settings.refreshRate);  //6
-        s += "|" + currentSubnet; // 7
-        s += "|" + String(settings.target_ip[0]) + "." + 
-               String(settings.target_ip[1]) + "." +             //8
-               String(settings.target_ip[2]) + "." + 
-               String(settings.target_ip[3]);
-        s += "|" + String(settings.hostname);   //9
-        s += "|" + String(keypadModeEnabled ? "1" : "0"); // 10
-        // Macro NAMES (Indice 11)
-        s += "|"; 
-            for(int i=0; i<10; i++) {
-                s += String(settings.macros[i]);         //11 
-                if(i < 9) s += ","; 
+            DmxSource src = getActiveSource();
+
+            StaticJsonDocument<4096> doc;
+            doc["ssid"]     = currentSSID;
+            doc["ip"]       = currentIP;
+            doc["mode"]     = settings.mode;
+            doc["running"]  = settings.isRunning;
+            doc["unicast"]  = (bool)settings.use_unicast;
+            doc["universe"] = settings.universe;
+            doc["refresh"]  = settings.refreshRate;
+            doc["subnet"]   = currentSubnet;
+            doc["targetIp"] = targetIpStr;
+            doc["hostname"] = settings.hostname;
+            doc["keypad"]   = keypadModeEnabled;
+            doc["artnet"]   = artnetConfirmed;
+            doc["scene"]    = sceneActive;
+            doc["blackout"] = blackoutActive;
+            doc["uptime"]   = (uint32_t)(millis() / 1000);
+            doc["source"]   = sourceToString(src);
+            doc["snapId"]   = activeSnapId;
+
+            // FS usage
+            size_t fsTotal = LittleFS.totalBytes();
+            size_t fsUsed  = LittleFS.usedBytes();
+            doc["fs"] = (fsTotal > 0) ? (int)((fsUsed * 100) / fsTotal) : 0;
+
+            // Macro names
+            JsonArray macros = doc.createNestedArray("macros");
+            for (int i = 0; i < MAX_MACROS; i++) {
+                macros.add(settings.macros[i]);
             }
-       // SNAP NAMES (Indice 12)
-        s += "|"; 
-        for(int i=0; i<MAX_SCENES; i++) {
-            s += String(sceneNames[i]);
-            if(i < MAX_SCENES-1) s += ","; 
-        }
-        // ArtNet Confirmed (Indice 13)
-        s += "|" + String(artnetConfirmed ? "1" : "0");
-        s += "|" + String(sceneActive ? "1" : "0");       // 14 ← snap active flag
-        s += "|" + String(blackoutActive ? "1" : "0"); // 15 blackout flag
-        // Uptime in secondi (indice 16)
-        s += "|" + String(millis() / 1000);
-        // FS usage % (indice 17)
-        size_t fsTotal = LittleFS.totalBytes();
-        size_t fsUsed  = LittleFS.usedBytes();
-        int fsPct = (fsTotal > 0) ? (int)((fsUsed * 100) / fsTotal) : 0;
-        s += "|" + String(fsPct);
-                    
-        request->send(200, "text/plain", s);
-    });
 
-server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(404, "text/plain", "");
-});
+            // Scene names
+            JsonArray scenes = doc.createNestedArray("scenes");
+            for (int i = 0; i < MAX_SCENES; i++) {
+                scenes.add(sceneNames[i]);
+            }
 
+            String out;
+            serializeJson(doc, out);
+            request->send(200, "application/json", out);
+        });
 
     // --- 3. ROTTE DI CONFIGURAZIONE E SISTEMA ---
     server.on("/connect", HTTP_GET, [](AsyncWebServerRequest *request){
