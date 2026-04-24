@@ -2,6 +2,7 @@
 #include "dmx_engine.h" 
 #include"../hw/hw_manager.h"
 #include "../core/artnet_engine.h"
+#include "../core/dmx_priority.h"
 #include <esp_dmx.h>
 #include <esp_task_wdt.h>
 
@@ -88,14 +89,11 @@ if (keypadModeEnabled) {
         if (settings.mode == 0) { 
             // MODO 0: RICEZIONE (DMX -> ARTNET)
 
-                if (lastPinMode != 0 && !keypadModeEnabled) {
-
-                        setRelay(RELAY_ON);
-                
-                        dmx_set_pin(dmxPort, DMX_TX_PIN, DMX_RX_PIN, -1);
-                        lastPinMode = 0;
-                       
-                    }
+            if (lastPinMode != 0 && !keypadModeEnabled) {
+                applyRelayForSource(getActiveSource());
+                dmx_set_pin(dmxPort, DMX_TX_PIN, DMX_RX_PIN, -1);
+                lastPinMode = 0;
+            }
             dmx_packet_t packet;
             // Aspettiamo il pacchetto fisico in ingresso
             if (dmx_receive(dmxPort, &packet, pdMS_TO_TICKS(100))) {
@@ -122,13 +120,10 @@ if (keypadModeEnabled) {
         else {
             // MODO 1: INVIO (ART-NET o STANDALONE -> DMX)
                 if (lastPinMode != 1) {
-                        setRelay(RELAY_OFF);
-                        
-
-                        dmx_set_pin(dmxPort, DMX_TX_PIN, -1, -1);
-                        lastPinMode = 1;
-                      
-                    }
+                    applyRelayForSource(getActiveSource());
+                    dmx_set_pin(dmxPort, DMX_TX_PIN, -1, -1);
+                    lastPinMode = 1;
+                }
 
 
             // 1. Calcolo intervallo in base agli Hz (es. 1000/40 = 25ms)

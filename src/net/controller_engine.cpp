@@ -3,6 +3,7 @@
 #include <ArduinoJson.h>
 #include "../config.h"
 #include "../core/scene_manager.h"
+#include "../core/dmx_priority.h"
 #include "../hw/hw_manager.h"
 
 extern volatile SemaphoreHandle_t dmx_mutex;
@@ -81,7 +82,7 @@ void setupControllerEndpoints(AsyncWebServer &server) {
             return;
         }
 
-        setRelay(RELAY_OFF);
+        applyRelayForSource(SOURCE_SNAP);
         runSnapExternal(id, fade);
 
         StaticJsonDocument<64> doc;
@@ -102,13 +103,7 @@ server.on("/api/snap/release", HTTP_GET, [](AsyncWebServerRequest *request) {
     settings.isRunning = preBlackoutRunning;
     preBlackoutRunning = false;
 
-    if (keypadModeEnabled) {
-        setRelay(RELAY_OFF);
-    } else if (settings.mode == 0) {
-        setRelay(RELAY_ON);
-    } else {
-        setRelay(RELAY_OFF);
-    }
+    applyRelayForSource(getActiveSource());
 
     request->send(200, "application/json", "{\"ok\":true}");
 });
@@ -124,7 +119,7 @@ server.on("/api/snap/release", HTTP_GET, [](AsyncWebServerRequest *request) {
             settings.isRunning = false;
             xSemaphoreGive(dmx_mutex);
         }
-        setRelay(RELAY_OFF);
+        applyRelayForSource(SOURCE_BLACKOUT);
 
         request->send(200, "application/json", "{\"ok\":true}");
     });

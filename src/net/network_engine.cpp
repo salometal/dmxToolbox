@@ -7,6 +7,7 @@
 #include "core/scene_manager.h"
 #include "core/artnet_engine.h"
 #include "net/keypad_engine.h"
+#include "../core/dmx_priority.h"
 #include "update_engine.h"
 #include "../hw/hw_manager.h"
 #include "../config.h"
@@ -194,10 +195,9 @@ server.on("/standalone", HTTP_GET, [](AsyncWebServerRequest *request) {
         if (request->hasParam("r")) {
         settings.refreshRate = request->getParam("r")->value().toInt(); // Riceve "44", "40", valori in Hz .
         }
-
-        if (settings.isRunning) {
-            setRelay(RELAY_ON); // DMX IN attivo + thru
-        } 
+            if (settings.isRunning) {
+                applyRelayForSource(getActiveSource());
+            }
  // --- SALVATAGGIO CONFIGURAZIONE ---
         saveConfiguration(); // 
 
@@ -238,7 +238,7 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
     }
         
         if (requestedRun) {
-                setRelay(RELAY_OFF); // ← ArtNet IN attivo
+                applyRelayForSource(getActiveSource()); // ← ArtNet IN attivo
   
             artnetConfirmed = false; // reset conferma al nuovo avvio
             udpActive = false;       // forza riapertura socket pulita
@@ -246,7 +246,7 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
             Serial.println("[WEB] Art-Net IN: avvio ricerca...");
             request->send(200, "text/plain", "OK_START");
         } else {
-                setRelay(RELAY_ON); // ← torna in thru
+                applyRelayForSource(SOURCE_NONE); // ← torna in thru
             settings.isRunning = false;
             artnetConfirmed = false; // reset anche allo stop
             udpActive = false;
@@ -439,7 +439,6 @@ server.on("/discover", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(200, "application/json", json);
 });
 
-
 server.on("/keypad_toggle", HTTP_GET, [](AsyncWebServerRequest *request){
     if (request->hasParam("state")) {
         String val = request->getParam("state")->value();
@@ -447,31 +446,45 @@ server.on("/keypad_toggle", HTTP_GET, [](AsyncWebServerRequest *request){
 
         // 1. Logica di ATTIVAZIONE (da OFF a ON)
         if (requestedState && !keypadModeEnabled) {
-            wasRunningBeforeKeypad = settings.isRunning; // Snapshot PRIMA di forzare
+            // Salva stato effettivo — considera anche udpActive per ArtNet
+            bool effectivelyRunning = settings.isRunning || udpActive;
+            wasRunningBeforeKeypad = effectivelyRunning;
+            Serial.printf("[KEYPAD ON] wasRunning salvato: %d (isRunning:%d udpActive:%d mode:%d)\n", 
+                effectivelyRunning, settings.isRunning, udpActive, settings.mode);
+
             settings.isRunning = true; 
-            setRelay(RELAY_OFF);
+            applyRelayForSource(SOURCE_KEYPAD);
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                 memset(keypad_dmx_buffer, 0, 513);
-                keypadModeEnabled = true; // Attiviamo l'override sotto Mutex
+                keypadModeEnabled = true;
                 xSemaphoreGive(dmx_mutex);
                 Serial.println("[SYSTEM] Keypad Mode: ATTIVATO");
-           
             }
         } 
-        // 2. Logica di DISATTIVAZIONE (da ON a OFF)
+        
+        // 2. Logica di DISATTIVAZIONE
         else if (!requestedState && keypadModeEnabled) {
-             setRelay(RELAY_ON);
-             vTaskDelay(pdMS_TO_TICKS(20));
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                 memset(keypad_dmx_buffer, 0, 513);
-                keypadModeEnabled = false; // Rilasciamo l'override sotto Mutex
-                xSemaphoreGive(dmx_mutex);
-                  
-                settings.isRunning = wasRunningBeforeKeypad; // Ripristino lo stato originale
+                keypadModeEnabled = false;
+                settings.isRunning = wasRunningBeforeKeypad;
                 wasRunningBeforeKeypad = false;
-                Serial.println("[SYSTEM] Keypad Mode: DISATTIVATO");
-          
+                xSemaphoreGive(dmx_mutex);
             }
+
+            // Forza riapertura socket in base alla modalità
+            if (settings.isRunning && settings.mode == 1) {
+                udpActive = false; // ArtNet IN → riapre socket
+            }
+            if (settings.isRunning && settings.mode == 0) {
+                udpActive = false; // DMX IN → reset socket
+            }
+
+            applyRelayForSource(getActiveSource());
+
+            Serial.printf("[KEYPAD OFF] isRunning: %d, mode: %d, source: %s\n",
+                settings.isRunning, settings.mode, sourceToString(getActiveSource()));
+            Serial.println("[SYSTEM] Keypad Mode: DISATTIVATO");
         }
 
         request->send(200, "text/plain", "OK");
@@ -532,7 +545,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("id")) {
                 int id = request->getParam("id")->value().toInt();
-                setRelay(RELAY_OFF);
+                applyRelayForSource(SOURCE_SNAP);
                 runSnap(id); // ← usa scene_manager con crossfade
                 request->send(200, "text/plain", "OK");
             } else {
@@ -549,14 +562,8 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             settings.isRunning = preBlackoutRunning;
             preBlackoutRunning = false;
 
-              if (keypadModeEnabled) {
-        // Keypad attivo = DMX OUT → relay rimane OFF
-                setRelay(RELAY_OFF);
-            } else if (settings.mode == 0) {
-                setRelay(RELAY_ON);
-            } else {
-                setRelay(RELAY_OFF);
-            }
+            applyRelayForSource(getActiveSource());
+
             Serial.println("[SCENE] Override rilasciato");
             request->send(200, "text/plain", "OK");
         });
@@ -653,7 +660,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
                     settings.isRunning = false;
                     xSemaphoreGive(dmx_mutex);
                 }
-                setRelay(RELAY_OFF); // ← disconnette DMX IN
+                applyRelayForSource(SOURCE_BLACKOUT); // ← disconnette DMX IN
                 Serial.println("[SYSTEM] Blackout eseguito");
                 request->send(200, "text/plain", "OK");
             });
