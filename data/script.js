@@ -82,6 +82,12 @@ function updateStatus() {
             const sceneActive    = d.scene;
             const blackoutActive = d.blackout;
 
+
+            // Aggiorna stato live per modal scene
+            isLiveForSnap = d.running || d.scene || d.keypad;
+            if (typeof settings === 'undefined') window.settings = {};
+            settings._running = d.running;
+
             // Macro
             if (d.macros) {
                 if (typeof settings === 'undefined') window.settings = {};
@@ -1069,109 +1075,312 @@ if (currentMacroMode === 'SAVE') {
             });
     }
 }
+/* ==========================================================================
+   SISTEMA SCENE — modal con tab GO / EDIT
+   ========================================================================== */
 
-function openSnapModal(mode = 'LIST') {
-    currentSnapMode = mode;
+let currentSnapTab = 'GO';
+let snapCurrentPage = 0;
+const SNAP_PER_PAGE = 10;
+let isLiveForSnap = false; // aggiornato da updateStatus
+
+function openSnapModal(startTab = 'GO') {
+    // Determina se il sistema è live (per abilitare grab)
+    isLiveForSnap = (typeof settings !== 'undefined' && settings._running) || false;
+    
     const modal = document.getElementById('snap-modal');
-    const saveUI = document.getElementById('snap-save-ui');
-    const title = document.getElementById('snap-title');
-
-    if (mode === 'GRAB') {
-        title.innerText = "CATTURA OUTPUT DMX 📸";
-        saveUI.style.display = "block";
-        modal.classList.add('modal-save-active');
-        
-        // Reset input nome e focus automatico
-        document.getElementById('snap-name-input').value = "";
-        setTimeout(() => document.getElementById('snap-name-input').focus(), 150);
-    } else {
-        title.innerText = "SCENE LIST 📂";
-        saveUI.style.display = "none";
-        modal.classList.remove('modal-save-active');
-    }
-
-    renderSnapGrid();
     modal.style.setProperty('display', 'flex', 'important');
+    setSnapTab(startTab);
 }
 
 function closeSnapModal() {
     document.getElementById('snap-modal').style.display = 'none';
 }
-function renderSnapGrid() {
-    const container = document.getElementById('snap-grid');
-    if (!container) return;
-    container.innerHTML = "";
 
-    for (let i = 0; i < 10; i++) {
-        // Recupero nome dallo stato locale (se presente)
-        const name = (typeof settings !== 'undefined' && settings.snaps) ? settings.snaps[i] : "";
-        const isOccupied = (name && name.trim() !== "" && name !== ",");
+function setSnapTab(tab) {
+    currentSnapTab = tab;
+    snapCurrentPage = 0;
+
+    document.getElementById('snap-view-go').style.display   = (tab === 'GO')   ? 'block' : 'none';
+    document.getElementById('snap-view-edit').style.display = (tab === 'EDIT') ? 'block' : 'none';
+
+    document.getElementById('tab-go').classList.toggle('active',   tab === 'GO');
+    document.getElementById('tab-edit').classList.toggle('active', tab === 'EDIT');
+
+    if (tab === 'GO')   renderSnapGo();
+    if (tab === 'EDIT') renderSnapEdit();
+}
+
+// ----- VISTA GO -----
+function renderSnapGo() {
+    const container = document.getElementById('snap-grid-go');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const snaps = (typeof settings !== 'undefined' && settings.snaps) ? settings.snaps : [];
+    const start = snapCurrentPage * SNAP_PER_PAGE;
+    const end   = Math.min(start + SNAP_PER_PAGE, snaps.length);
+
+    for (let i = start; i < end; i++) {
+        const name = snaps[i] || '';
+        const isOccupied = name.trim() !== '';
 
         const btn = document.createElement('button');
         btn.className = `btn-snap-slot ${isOccupied ? 'occupied' : 'empty'}`;
-        
+        if (!isOccupied) btn.disabled = true;
+
         btn.innerHTML = `
             <span class="slot-num">SCENA ${i + 1}</span>
             <span class="slot-name">${isOccupied ? name : '--- LIBERO ---'}</span>
         `;
 
-        btn.onclick = () => handleSnapAction(i);
+        if (isOccupied) {
+            btn.onclick = () => {
+                fetch(`/run_snap?id=${i}`)
+                    .then(r => r.text())
+                    .then(res => {
+                        if (res === 'OK') {
+                           
+                            setTimeout(updateStatus, 300);
+                        } else {
+                            alert('Errore richiamo scena: ' + res);
+                        }
+                    });
+            };
+        }
         container.appendChild(btn);
     }
+
+    // Aggiorna label pagina
+    const totalPages = Math.ceil(50 / SNAP_PER_PAGE);
+    document.getElementById('snap-page-label').innerText = `${snapCurrentPage + 1} / ${totalPages}`;
 }
-function handleSnapAction(id) {
-    if (currentSnapMode === 'GRAB') {
-        // --- LOGICA DI SALVATAGGIO (CATTURA) ---
-        
-        const existingName = (typeof settings !== 'undefined' && settings.snaps) ? settings.snaps[id] : "";
-        const isOccupied = (existingName && existingName.trim() !== "" && existingName !== ",");
 
-        // Conferma sovrascrittura
+function snapPagePrev() {
+    if (snapCurrentPage > 0) { snapCurrentPage--; renderSnapGo(); }
+}
+
+function snapPageNext() {
+    const totalPages = Math.ceil(50 / SNAP_PER_PAGE);
+    if (snapCurrentPage < totalPages - 1) { snapCurrentPage++; renderSnapGo(); }
+}
+
+// ----- VISTA EDIT -----
+function renderSnapEdit() {
+    const container = document.getElementById('snap-list-edit');
+    if (!container) return;
+    container.innerHTML = '';
+
+    const snaps = (typeof settings !== 'undefined' && settings.snaps) ? settings.snaps : [];
+
+    const grabUi = document.getElementById('snap-grab-ui');
+    if (grabUi) grabUi.style.display = isLiveForSnap ? 'block' : 'none';
+
+    for (let i = 0; i < 50; i++) {
+        const name = snaps[i] || '';
+        const isOccupied = name.trim() !== '';
+
+        const row = document.createElement('div');
+        row.className = 'snap-edit-row';
+        row.id = `snap-row-${i}`;
+
+        // Riga superiore: numero + nome
+        const topRow = document.createElement('div');
+        topRow.style.cssText = 'display:flex; align-items:center; gap:8px; width:100%;';
+
+        const numSpan = document.createElement('span');
+        numSpan.className = 'snap-edit-num';
+        numSpan.innerText = `${i + 1}`;
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = `snap-edit-name ${isOccupied ? '' : 'empty'}`;
+        nameSpan.innerText = isOccupied ? name : '— vuoto —';
+
+        topRow.appendChild(numSpan);
+        topRow.appendChild(nameSpan);
+
+        // Riga inferiore: azioni — solo se occupato o grab disponibile
+        const bottomRow = document.createElement('div');
+        bottomRow.style.cssText = 'display:flex; gap:8px; margin-top:6px; width:100%;';
+
+        // Input sposta (solo se occupato)
         if (isOccupied) {
-            if (!confirm(`La Scena ${id + 1} contiene già: "${existingName.trim()}".\nSovrascrivere con l'output attuale?`)) {
-                return;
-            }
+            const moveWrap = document.createElement('div');
+            moveWrap.style.cssText = 'display:flex; align-items:center; gap:4px; flex:1;';
+
+            const moveLabel = document.createElement('span');
+            moveLabel.style.cssText = 'font-size:0.7rem; color:#555; white-space:nowrap;';
+            moveLabel.innerText = '→ slot';
+
+            const moveInput = document.createElement('input');
+            moveInput.type = 'text';
+            moveInput.inputMode = 'numeric';
+            moveInput.pattern = '[0-9]*';
+            moveInput.className = 'snap-edit-move';
+            moveInput.placeholder = String(i + 1);
+            moveInput.min = 1;
+            moveInput.max = 50;
+            moveInput.style.cssText = 'width:56px; padding:6px; background:#222; border:1px solid #333; border-radius:4px; color:#aaa; font-size:0.8rem; text-align:center;';
+
+            const moveBtn = document.createElement('button');
+            moveBtn.style.cssText = 'padding:6px 10px; background:rgba(0,123,255,0.15); border:1px solid var(--primary); color:var(--primary); border-radius:4px; font-size:0.7rem; font-weight:bold; cursor:pointer; white-space:nowrap;';
+            moveBtn.innerText = 'SPOSTA';
+            moveBtn.onclick = () => {
+                const dest = parseInt(moveInput.value) - 1;
+                if (isNaN(dest) || dest < 0 || dest >= 50 || dest === i) {
+                    moveInput.value = '';
+                    return;
+                }
+                snapMove(i, dest);
+                moveInput.value = '';
+            };
+
+            moveWrap.appendChild(moveLabel);
+            moveWrap.appendChild(moveInput);
+            moveWrap.appendChild(moveBtn);
+            bottomRow.appendChild(moveWrap);
+
+            // Pulsante elimina
+            const delBtn = document.createElement('button');
+            delBtn.style.cssText = 'padding:6px 12px; background:rgba(200,35,51,0.15); border:1px solid var(--danger); color:var(--danger); border-radius:4px; font-size:0.75rem; font-weight:bold; cursor:pointer; white-space:nowrap;';
+            delBtn.innerText = '🗑 DEL';
+            delBtn.onclick = () => snapDelete(i);
+            bottomRow.appendChild(delBtn);
+
+             // Pulsante rinomina
+        const renameBtn = document.createElement('button');
+        renameBtn.style.cssText = 'padding:6px 12px; background:rgba(0,212,255,0.1); border:1px solid var(--accent); color:var(--accent); border-radius:4px; font-size:0.75rem; font-weight:bold; cursor:pointer; white-space:nowrap;';
+        renameBtn.innerText = '✏ EDIT';
+        renameBtn.onclick = () => {
+            // Toggle input rinomina inline
+            const existing = row.querySelector('.rename-row');
+            if (existing) { existing.remove(); return; }
+
+            const renameRow = document.createElement('div');
+            renameRow.className = 'rename-row';
+            renameRow.style.cssText = 'display:flex; gap:8px; margin-top:8px; width:100%;';
+
+            const renameInput = document.createElement('input');
+            renameInput.type = 'text';
+            renameInput.value = name;
+            renameInput.maxLength = 15;
+            renameInput.style.cssText = 'flex:1; padding:6px 10px; background:#111; border:1px solid var(--accent); border-radius:4px; color:#fff; font-size:0.85rem;';
+
+            const confirmBtn = document.createElement('button');
+            confirmBtn.style.cssText = 'padding:6px 12px; background:rgba(33,136,56,0.2); border:1px solid var(--success); color:var(--success); border-radius:4px; font-size:0.75rem; font-weight:bold; cursor:pointer;';
+            confirmBtn.innerText = '✓ OK';
+            confirmBtn.onclick = () => {
+                const newName = renameInput.value.trim().replace(/[|,]/g, '').substring(0, 15);
+                if (!newName) return;
+                fetch(`/rename_snap?id=${i}&name=${encodeURIComponent(newName)}`)
+                    .then(r => r.text())
+                    .then(res => {
+                        if (res === 'OK') {
+                            if (typeof settings !== 'undefined') settings.snaps[i] = newName;
+                            renderSnapEdit();
+                            setTimeout(updateStatus, 300);
+                        } else {
+                            alert('Errore rinomina: ' + res);
+                        }
+                    });
+            };
+
+            renameRow.appendChild(renameInput);
+            renameRow.appendChild(confirmBtn);
+            row.appendChild(renameRow);
+            setTimeout(() => renameInput.focus(), 50);
+        };
+        bottomRow.appendChild(renameBtn);
+
         }
+       
+        // Pulsante GRAB — sempre visibile, disabilitato in standby
+        const grabBtn = document.createElement('button');
+        grabBtn.style.cssText = 'padding:6px 12px; background:rgba(255,68,68,0.15); border:1px solid #ff4444; color:#ff4444; border-radius:4px; font-size:0.75rem; font-weight:bold; cursor:pointer; white-space:nowrap;';
+        grabBtn.innerText = isOccupied ? '📸 OVR' : '📸 GRAB';
+        grabBtn.disabled = !isLiveForSnap;
+        grabBtn.title = isLiveForSnap ? 'Cattura output DMX' : 'Avvia una modalità per abilitare';
+        if (!isLiveForSnap) grabBtn.style.opacity = '0.3';
+        grabBtn.onclick = () => snapGrab(i);
+        bottomRow.appendChild(grabBtn);
 
-        const nameInput = document.getElementById('snap-name-input').value.trim();
-        const finalName = nameInput || (isOccupied ? existingName.trim() : `Snap ${id + 1}`);
-        
-        // Sanificazione (max 15 caratteri, no separatori riservati)
-        const sanitizedName = finalName.replace(/[|,]/g, "").substring(0, 15);
-
-        // Chiamata all'ESP32 per "congelare" il buffer DMX nello slot ID
-        fetch(`/save_snap?id=${id}&name=${encodeURIComponent(sanitizedName)}`)
-            .then(r => r.text())
-            .then(res => {
-                if (res === "OK") {
-                    console.log(`Snapshot ${id} salvato: ${sanitizedName}`);
-                    if (typeof settings !== 'undefined') settings.snaps[id] = sanitizedName;
-                    
-                    // Feedback visivo e chiusura
-                    closeSnapModal();
-                    // Potresti aggiungere un piccolo flash dell'header qui
-                } else {
-                    alert("Errore cattura: " + res);
-                }
-            })
-            .catch(err => console.error("Errore fetch snap save:", err));
-
-    } else {
-        // --- LOGICA DI ESECUZIONE (PLAYBACK) ---
-        fetch(`/run_snap?id=${id}`)
-            .then(r => r.text())
-            .then(res => {
-                if (res === "OK") {
-                    console.log(`Richiamo Snapshot ${id}`);
-                    
-                    // Feedback opzionale nell'interfaccia
-                } else {
-                    alert("Errore caricamento Snap: " + res);
-                }
-            })
-            .catch(err => console.error("Errore fetch snap run:", err));
+        row.appendChild(topRow);
+        if (isOccupied || isLiveForSnap) row.appendChild(bottomRow);
+        container.appendChild(row);
     }
 }
+
+// ----- AZIONI EDIT -----
+function snapGrab(id) {
+    const nameInput = document.getElementById('snap-name-input');
+    const name = nameInput ? nameInput.value.trim() : '';
+    const snaps = (typeof settings !== 'undefined' && settings.snaps) ? settings.snaps : [];
+    const existingName = snaps[id] || '';
+    const isOccupied = existingName.trim() !== '';
+
+    if (isOccupied) {
+        if (!confirm(`La Scena ${id + 1} contiene già: "${existingName.trim()}".\nSovrascrivere?`)) return;
+    }
+
+    const finalName = name || (isOccupied ? existingName.trim() : `Scena ${id + 1}`);
+    const sanitized = finalName.replace(/[|,]/g, '').substring(0, 15);
+
+    fetch(`/save_snap?id=${id}&name=${encodeURIComponent(sanitized)}`)
+        .then(r => r.text())
+        .then(res => {
+            if (res === 'OK') {
+                if (nameInput) nameInput.value = '';
+                if (typeof settings !== 'undefined') settings.snaps[id] = sanitized;
+                renderSnapEdit();
+                setTimeout(updateStatus, 300);
+            } else {
+                alert('Errore grab: ' + res);
+            }
+        });
+}
+
+function snapDelete(id) {
+    const snaps = (typeof settings !== 'undefined' && settings.snaps) ? settings.snaps : [];
+    const name = snaps[id] || '';
+    if (!confirm(`Eliminare la Scena ${id + 1} "${name}"?`)) return;
+
+    fetch(`/delete_snap?id=${id}`)
+        .then(r => r.text())
+        .then(res => {
+            if (res === 'OK') {
+                if (typeof settings !== 'undefined') settings.snaps[id] = '';
+                renderSnapEdit();
+                setTimeout(updateStatus, 300);
+            } else {
+                alert('Errore eliminazione: ' + res);
+            }
+        });
+}
+
+function snapMove(fromId, toId) {
+    fetch(`/move_snap?from=${fromId}&to=${toId}`)
+        .then(r => r.text())
+        .then(res => {
+            if (res === 'OK') {
+                fetch('/status')
+                    .then(r => r.json())
+                    .then(d => {
+                        if (d.scenes) {
+                            if (typeof settings === 'undefined') window.settings = {};
+                            settings.snaps = d.scenes;
+                        }
+                        renderSnapEdit();
+                    });
+            } else {
+                alert('Errore spostamento: ' + res);
+            }
+        });
+}
+
+// Aggiorna isLiveForSnap da updateStatus
+// Aggiungere nella funzione updateStatus dopo aver estratto run:
+// isLiveForSnap = run || sceneActive;
+// e aggiornare settings._running = run;
 function releaseScene() {
     fetch('/release_snap').then(() => updateStatus());
 }

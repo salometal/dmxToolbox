@@ -2,9 +2,12 @@
 <html lang="it">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
     <title>DMX Toolbox — Scene</title>
     <style>
+        * {
+    touch-action: manipulation;
+}
         :root {
             --bg-color: #0f0f0f;
             --surface: #1a1a1a;
@@ -142,7 +145,6 @@
         /* Griglia scene */
         .scenes-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
             gap: 12px;
             flex: 1;
         }
@@ -255,10 +257,29 @@
     <div class="scenes-grid" id="scenes-grid">
         <div class="empty-scenes">Caricamento scene...</div>
     </div>
+        <div id="easy-pagination" style="display:none; justify-content:space-between; align-items:center; gap:8px; margin-top:4px;">
+        <div onclick="easyPagePrev()" id="easy-prev" style="flex:1; min-height:48px; background:#333; border:1px solid #444; color:white; border-radius:8px; font-weight:bold; font-size:0.85rem; display:flex; align-items:center; justify-content:center; cursor:pointer; -webkit-tap-highlight-color:transparent; user-select:none;">◀ PREV</div>
+        <span id="easy-page-label" style="font-size:0.75rem; color:var(--text-dim); white-space:nowrap;">1 / 1</span>
+        <div onclick="easyPageNext()" id="easy-next" style="flex:1; min-height:48px; background:#333; border:1px solid #444; color:white; border-radius:8px; font-weight:bold; font-size:0.85rem; display:flex; align-items:center; justify-content:center; cursor:pointer; -webkit-tap-highlight-color:transparent; user-select:none;">NEXT ▶</div>
+    </div>
     <button id="release-btn" onclick="releaseScene()">⬛ RELEASE SCENE</button>
 </div>
 
 <script>
+document.addEventListener('touchstart', function(e) {
+    if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+
+document.addEventListener('gesturestart', function(e) {
+    e.preventDefault();
+});
+
+document.addEventListener('gesturechange', function(e) {
+    e.preventDefault();
+});
+
+
+
 // ============================================================
 // PIN
 // ============================================================
@@ -321,17 +342,19 @@ function showSceneScreen() {
 
 function loadScenes() {
     fetch('/status')
-        .then(r => r.text())
-        .then(data => {
-            const p = data.split('|');
-            snapNames = p[12] ? p[12].split(',') : [];
-            const sceneActive = p[14] === '1';
-            const blackoutActive = p[15] === '1';
+        .then(r => r.json())
+        .then(d => {
+            snapNames = d.scenes || [];
+            const sceneActive = d.scene;
+            const blackoutActive = d.blackout;
+            if (d.snapId !== undefined) activeSceneId = d.snapId;
             renderScenes();
             updateReleaseBtn(sceneActive || blackoutActive);
         });
 }
 
+let easyCurrentPage = 0;
+const EASY_PER_PAGE = 10; // 6 scene per pagina — 2 colonne x 3 righe su mobile
 function renderScenes() {
     const grid = document.getElementById('scenes-grid');
     grid.innerHTML = '';
@@ -342,16 +365,62 @@ function renderScenes() {
 
     if (validSnaps.length === 0) {
         grid.innerHTML = '<div class="empty-scenes">Nessuna scena disponibile</div>';
+        updatePagination(0, 0);
         return;
     }
 
-    validSnaps.forEach(s => {
+    const totalPages = Math.ceil(validSnaps.length / EASY_PER_PAGE);
+    if (easyCurrentPage >= totalPages) easyCurrentPage = totalPages - 1;
+
+    const start = easyCurrentPage * EASY_PER_PAGE;
+    const pageSnaps = validSnaps.slice(start, start + EASY_PER_PAGE);
+    const count = pageSnaps.length;
+
+    // Griglia dinamica in base al numero di scene nella pagina
+    if (count <= 2) {
+        grid.style.gridTemplateColumns = 'repeat(1, 1fr)';
+    } else if (count === 3) {
+        grid.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    } else {
+        grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    }
+
+    pageSnaps.forEach(s => {
         const btn = document.createElement('button');
         btn.className = 'scene-btn' + (s.idx === activeSceneId ? ' active-scene' : '');
         btn.innerText = s.name;
         btn.onclick = () => recallSnap(s.idx);
         grid.appendChild(btn);
     });
+
+    updatePagination(easyCurrentPage + 1, totalPages);
+}
+
+function updatePagination(current, total) {
+    const pag = document.getElementById('easy-pagination');
+    const label = document.getElementById('easy-page-label');
+    const prevBtn = document.getElementById('easy-prev');
+    const nextBtn = document.getElementById('easy-next');
+
+    if (total <= 1) {
+        pag.style.display = 'none';
+        return;
+    }
+
+    pag.style.display = 'flex';
+    label.innerText = current + ' / ' + total;
+    prevBtn.style.opacity = current <= 1 ? '0.3' : '1';
+    nextBtn.style.opacity = current >= total ? '0.3' : '1';
+}
+
+function easyPagePrev() {
+    if (easyCurrentPage > 0) { easyCurrentPage--; renderScenes(); }
+}
+
+function easyPageNext() {
+    const validCount = snapNames.filter(n => n.trim() !== '' && n !== ',').length;
+    const totalPages = Math.ceil(validCount / EASY_PER_PAGE);
+    if (easyCurrentPage < totalPages - 1) { easyCurrentPage++; renderScenes(); }
 }
 
 function recallSnap(id) {
@@ -378,27 +447,25 @@ function releaseScene() {
 function updateReleaseBtn(show) {
     document.getElementById('release-btn').style.display = show ? 'block' : 'none';
 }
-
 function pollStatus() {
     fetch('/status')
-        .then(r => r.text())
-        .then(data => {
-            const p = data.split('|');
-            const newSnaps = p[12] ? p[12].split(',') : [];
-            const sceneActive  = p[14] === '1';
-            const blackoutActive = p[15] === '1';
+        .then(r => r.json())
+        .then(d => {
+            const newSnaps = d.scenes || [];
+            const sceneActive = d.scene;
+            const blackoutActive = d.blackout;
 
-            // Aggiorna nomi se cambiati
             if (JSON.stringify(newSnaps) !== JSON.stringify(snapNames)) {
                 snapNames = newSnaps;
                 renderScenes();
             }
 
-            // Se scena non più attiva, resetta highlight
-            if (!sceneActive && !blackoutActive) {
+            if (!sceneActive && !blackoutActive && activeSceneId !== -1) {
                 activeSceneId = -1;
                 renderScenes();
             }
+
+            if (d.snapId !== undefined) activeSceneId = d.snapId;
 
             updateReleaseBtn(sceneActive || blackoutActive);
         })

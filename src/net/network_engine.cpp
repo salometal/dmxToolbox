@@ -106,7 +106,10 @@ uint8_t artpoll[14] = {'A','r','t','-','N','e','t', 0x00, 0x00, 0x20, 0x00, 0x0E
 
                 // Costruiamo il pezzetto di JSON
                 if (foundNodes.length() > 0) foundNodes += ",";
-                foundNodes += "{\"name\":\"" + String(sName) + "\",\"ip\":\"" + ip + "\",\"type\":\"artnet\"}";
+                String nodeName = String(sName);
+                nodeName.replace("\"", "'");
+                nodeName.replace("\\", "");
+                foundNodes += "{\"name\":\"" + nodeName + "\",\"ip\":\"" + ip + "\",\"type\":\"artnet\"}";
                 Serial.printf("[SCANNER] Trovato: %s (%s)\n", sName, ip.c_str());
             }
         }
@@ -502,6 +505,11 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             String sanitized = name;
             sanitized.replace("|", "");
             sanitized.replace(",", "");
+            sanitized.replace("\"", "");
+            sanitized.replace("\\", "");
+            sanitized.replace("<", "");
+            sanitized.replace(">", "");
+            sanitized.replace("&", "");
             sanitized = sanitized.substring(0, 15);
             saveMacro(id, sanitized.c_str());
             saveConfiguration();
@@ -534,6 +542,11 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
                     String sanitized = name;
                     sanitized.replace("|", "");
                     sanitized.replace(",", "");
+                    sanitized.replace("\"", "");
+                    sanitized.replace("\\", "");
+                    sanitized.replace("<", "");
+                    sanitized.replace(">", "");
+                    sanitized.replace("&", "");
                     sanitized = sanitized.substring(0, 15);
                     saveSnap(id, sanitized.c_str());
                     saveConfiguration();
@@ -541,7 +554,140 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
                 }
             }
         });
+        // --- ROTTA DELETE SNAP ---
+        server.on("/delete_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
+            if (request->hasParam("id")) {
+                int id = request->getParam("id")->value().toInt();
+                if (id >= 0 && id < MAX_SCENES) {
+                    // Cancella nome
+                    sceneNames[id][0] = '\0';
+                    // Cancella file .dat
+                    String path = "/s" + String(id) + ".dat";
+                    if (LittleFS.exists(path)) LittleFS.remove(path);
+                    saveScenes();
+                    request->send(200, "text/plain", "OK");
+                } else {
+                    request->send(400, "text/plain", "ERR_ID");
+                }
+            } else {
+                request->send(400, "text/plain", "ERR_PARAMS");
+            }
+        });
 
+        // --- ROTTA MOVE SNAP ---
+        server.on("/move_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
+                if (!request->hasParam("from") || !request->hasParam("to")) {
+                    request->send(400, "text/plain", "ERR_PARAMS");
+                    return;
+                }
+
+                int from = request->getParam("from")->value().toInt();
+                int to   = request->getParam("to")->value().toInt();
+
+                if (from < 0 || from >= MAX_SCENES || to < 0 || to >= MAX_SCENES || from == to) {
+                    request->send(400, "text/plain", "ERR_RANGE");
+                    return;
+                }
+
+                // 1. Salva la scena da spostare in buffer temporaneo
+                char tmpName[32];
+                strlcpy(tmpName, sceneNames[from], sizeof(tmpName));
+
+                // Copia il file .dat in tmp
+                String pathFrom = "/s" + String(from) + ".dat";
+                String pathTmp  = "/s_tmp.dat";
+                bool fromHasFile = LittleFS.exists(pathFrom);
+
+                if (fromHasFile) {
+                    File src = LittleFS.open(pathFrom, "r");
+                    File dst = LittleFS.open(pathTmp, "w");
+                    if (src && dst) { while (src.available()) dst.write(src.read()); }
+                    if (src) src.close();
+                    if (dst) dst.close();
+                }
+
+                // 2. Shift dei nomi e file
+                if (from > to) {
+                    // Sposta verso l'alto — shift in avanti da to a from-1
+                    for (int i = from; i > to; i--) {
+                        strlcpy(sceneNames[i], sceneNames[i-1], sizeof(sceneNames[i]));
+
+                        String pathPrev = "/s" + String(i-1) + ".dat";
+                        String pathCurr = "/s" + String(i)   + ".dat";
+
+                        if (LittleFS.exists(pathPrev)) {
+                            File src = LittleFS.open(pathPrev, "r");
+                            File dst = LittleFS.open(pathCurr, "w");
+                            if (src && dst) { while (src.available()) dst.write(src.read()); }
+                            if (src) src.close();
+                            if (dst) dst.close();
+                        } else {
+                            LittleFS.remove(pathCurr);
+                        }
+                    }
+                } else {
+                    // Sposta verso il basso — shift all'indietro da from+1 a to
+                    for (int i = from; i < to; i++) {
+                        strlcpy(sceneNames[i], sceneNames[i+1], sizeof(sceneNames[i]));
+
+                        String pathNext = "/s" + String(i+1) + ".dat";
+                        String pathCurr = "/s" + String(i)   + ".dat";
+
+                        if (LittleFS.exists(pathNext)) {
+                            File src = LittleFS.open(pathNext, "r");
+                            File dst = LittleFS.open(pathCurr, "w");
+                            if (src && dst) { while (src.available()) dst.write(src.read()); }
+                            if (src) src.close();
+                            if (dst) dst.close();
+                        } else {
+                            LittleFS.remove(pathCurr);
+                        }
+                    }
+                }
+
+                // 3. Inserisci la scena nella posizione target
+                strlcpy(sceneNames[to], tmpName, sizeof(sceneNames[to]));
+
+                String pathTo = "/s" + String(to) + ".dat";
+                if (fromHasFile) {
+                    File src = LittleFS.open(pathTmp, "r");
+                    File dst = LittleFS.open(pathTo, "w");
+                    if (src && dst) { while (src.available()) dst.write(src.read()); }
+                    if (src) src.close();
+                    if (dst) dst.close();
+                    LittleFS.remove(pathTmp);
+                } else {
+                    LittleFS.remove(pathTo);
+                }
+
+                saveScenes();
+                Serial.printf("[SCENE] Insert move %d → %d\n", from, to);
+                request->send(200, "text/plain", "OK");
+            });
+        server.on("/rename_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
+            if (request->hasParam("id") && request->hasParam("name")) {
+                int id = request->getParam("id")->value().toInt();
+                String name = request->getParam("name")->value();
+                if (id >= 0 && id < MAX_SCENES) {
+                    String sanitized = name;
+                    sanitized.replace("|", "");
+                    sanitized.replace(",", "");
+                    sanitized.replace("\"", "");
+                    sanitized.replace("\\", "");
+                    sanitized.replace("<", "");
+                    sanitized.replace(">", "");
+                    sanitized.replace("&", "");
+                    sanitized = sanitized.substring(0, 15);
+                    strlcpy(sceneNames[id], sanitized.c_str(), sizeof(sceneNames[id]));
+                    saveScenes();
+                    request->send(200, "text/plain", "OK");
+                } else {
+                    request->send(400, "text/plain", "ERR_ID");
+                }
+            } else {
+                request->send(400, "text/plain", "ERR_PARAMS");
+            }
+        });                             
         server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("id")) {
                 int id = request->getParam("id")->value().toInt();
