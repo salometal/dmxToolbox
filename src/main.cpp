@@ -8,6 +8,7 @@
 #include "config.h"
 #include "core/artnet_engine.h"
 #include "core/dmx_engine.h"
+#include "core/scene_manager.h" 
 #include "net/network_engine.h"
 #include "net/keypad_engine.h"
 #include "hw/hw_manager.h"
@@ -186,15 +187,14 @@ if(LittleFS.begin(true)) {
         strlcpy(settings.easyPin, "0000", sizeof(settings.easyPin));
         
         // Inizializza i nomi macro come vuoti (opzionale se usi memset sopra)
-    for(int i=0; i<10; i++) {
-    memset(settings.macros[i], 0, sizeof(settings.macros[i]));
-    
-    memset(settings.snapNames[i], 0, sizeof(settings.snapNames[i]));
-}
+            for(int i=0; i<MAX_MACROS; i++) {
+                memset(settings.macros[i], 0, sizeof(settings.macros[i]));
+            }
         
 
         saveConfiguration(); // Crea il file config.bin iniziale
     }
+    loadScenes();
 
 }
 

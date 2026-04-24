@@ -49,11 +49,11 @@ void setupControllerEndpoints(AsyncWebServer &server) {
         StaticJsonDocument<512> doc;
         JsonArray arr = doc.to<JsonArray>();
 
-        for (int i = 0; i < 10; i++) {
-            if (strlen(settings.snapNames[i]) > 0) {
+        for (int i = 0; i < MAX_SCENES; i++) {
+            if (strlen(sceneNames[i]) > 0) {
                 JsonObject obj = arr.createNestedObject();
                 obj["id"]   = i;
-                obj["name"] = settings.snapNames[i];
+                obj["name"] = sceneNames[i];
             }
         }
 
@@ -76,7 +76,7 @@ void setupControllerEndpoints(AsyncWebServer &server) {
                      ? request->getParam("fade")->value().toFloat()
                      : 0.0f;
 
-        if (id < 0 || id > 9) {
+       if (id < 0 || id >= MAX_SCENES) {
             request->send(400, "application/json", "{\"error\":\"invalid id\"}");
             return;
         }

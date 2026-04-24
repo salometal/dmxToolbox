@@ -812,7 +812,7 @@ console.log("CMD prima di sendStandalone: fuori dal ciclo ", currentCmd);
             // 4. Gestione Display post-invio
             if (isCheckMode) {
                 currentCmd = channelOnly; 
-                d.innerText = "SOLO _ " + currentCmd;
+                d.innerText = "HL _ " + currentCmd;
             } else {
                 currentCmd = channelOnly;
                 if (channelOnly !== "") {
@@ -830,7 +830,7 @@ console.log("CMD prima di sendStandalone: fuori dal ciclo ", currentCmd);
     if (v === 'OUT') {
         fetch('/standalone?type=CLEAR');
         currentCmd = "";
-        d.innerText = isCheckMode ? "SOLO _" : "CHAN _";
+        d.innerText = isCheckMode ? "HL _" : "CHAN _";
         return;
     }
 
@@ -857,7 +857,7 @@ if (v === 'NEXT' || v === 'LAST') {
 
         currentCmd = String(pivot);
         fetch(`/standalone?cmd=${encodeURIComponent(currentCmd)}&type=${v}&offsets=${off}&step=${stp}&_t=${Date.now()}`);
-        d.innerText = "SOLO _ " + currentCmd;
+        d.innerText = "HL _ " + currentCmd;
         return;
     }
 
@@ -891,7 +891,7 @@ if (v === 'NEXT' || v === 'LAST') {
 
     currentCmd = newParts.filter(p => p !== "").join(" ") + atPart;
     fetch(`/standalone?cmd=${encodeURIComponent(currentCmd)}&type=${v}&offsets=${off}&step=${stp}&_t=${Date.now()}`);
-    d.innerText = "SOLO _ " + currentCmd;
+    d.innerText = "HL _ " + currentCmd;
     return;
 }
     // 5. GESTIONE MODALITÀ SOLO
@@ -904,7 +904,7 @@ if (v === 'NEXT' || v === 'LAST') {
             d.innerText = "CHAN _";
         } else {
             // Se entriamo nel SOLO, mostriamo l'etichetta corretta
-            d.innerText = "SOLO _ " + currentCmd;
+            d.innerText = "HL _ " + currentCmd;
         }
         return;
     }
@@ -927,7 +927,7 @@ if (v === 'NEXT' || v === 'LAST') {
     }
 
     let cleaned = currentCmd.replace(/\s+/g, ' ');
-    let label = isCheckMode ? "SOLO _ " : "CHAN _ ";
+    let label = isCheckMode ? "HL _ " : "CHAN _ ";
     d.innerText = label + cleaned;
 }
 
@@ -973,7 +973,7 @@ function toggleKeypadMode() {
          fetch('/release_snap');
         display.style.color = "";        // Torna al colore originale
         display.style.opacity = "1";
-        display.innerText = isCheckMode ? "SOLO _" : "CHAN _";
+        display.innerText = isCheckMode ? "HL _" : "CHAN _";
     }
 
     // 2. Chiamata all'ESP32
@@ -1130,7 +1130,7 @@ if (currentMacroMode === 'SAVE') {
                     // Feedback opzionale sul display del keypad
                     document.getElementById('cmd-display').innerText = `LOAD M${id+1}...`;
                     setTimeout(() => {
-                        document.getElementById('cmd-display').innerText = isCheckMode ? "SOLO _" : "CHAN _";
+                        document.getElementById('cmd-display').innerText = isCheckMode ? "HL _" : "CHAN _";
                     }, 1000);
                 }
             });

@@ -6,6 +6,7 @@
 #include <vector>
 #include <esp_task_wdt.h>
 #include "../config.h"
+#include "../core/scene_manager.h"
 #include "network_engine.h"   // ← per saveConfiguration
 
 // --------------------------------------------------------------------------
@@ -36,9 +37,9 @@ static String configToJson() {
     j += "\"easyPin\":\""  + String(settings.easyPin)     + "\",";
     // Nomi snapshot
     j += "\"snapNames\":[";
-    for (int i = 0; i < 10; i++) {
-        j += "\"" + String(settings.snapNames[i]) + "\"";
-        if (i < 9) j += ",";
+    for (int i = 0; i < MAX_SCENES; i++) {
+        j += "\"" + String(sceneNames[i]) + "\"";
+        if (i < MAX_SCENES-1) j += ",";
     }
     j += "],";
 
@@ -139,11 +140,11 @@ static void applyJsonToConfig(const String& json) {
     int pos = json.indexOf(search);
     if (pos >= 0) {
         pos += search.length();
-        for (int i = 0; i < 10; i++) {
+        for (int i = 0; i < MAX_SCENES; i++) {
             pos = json.indexOf("\"", pos) + 1;
             int end = json.indexOf("\"", pos);
             if (end < 0) break;
-            strlcpy(settings.snapNames[i], json.substring(pos, end).c_str(), sizeof(settings.snapNames[i]));
+            strlcpy(sceneNames[i], json.substring(pos, end).c_str(), sizeof(sceneNames[i]));
             pos = end + 1;
         }
     }
@@ -320,6 +321,7 @@ void setupUpdateEndpoints(AsyncWebServer &srv) {
                         cfg.close();
                         applyJsonToConfig(jsonStr);
                         saveConfiguration();
+                        saveScenes(); // ← persiste scenes.json dopo restore
                         LittleFS.remove("/backup_config.json");
                         Serial.println("[RESTORE] Config applicata");
                     }

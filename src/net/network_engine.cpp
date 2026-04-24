@@ -289,9 +289,9 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
             }
        // SNAP NAMES (Indice 12)
         s += "|"; 
-        for(int i=0; i<10; i++) {
-            s += String(settings.snapNames[i]);
-            if(i < 9) s += ","; 
+        for(int i=0; i<MAX_SCENES; i++) {
+            s += String(sceneNames[i]);
+            if(i < MAX_SCENES-1) s += ","; 
         }
         // ArtNet Confirmed (Indice 13)
         s += "|" + String(artnetConfirmed ? "1" : "0");
@@ -485,7 +485,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
     if (request->hasParam("id") && request->hasParam("name")) {
         int id = request->getParam("id")->value().toInt();
         String name = request->getParam("name")->value();
-        if (id >= 0 && id < 10) {
+        if (id >= 0 && id < MAX_MACROS) {
             String sanitized = name;
             sanitized.replace("|", "");
             sanitized.replace(",", "");
@@ -517,7 +517,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("id") && request->hasParam("name")) {
                 int id = request->getParam("id")->value().toInt();
                 String name = request->getParam("name")->value();
-                if (id >= 0 && id < 10) {
+                if (id >= 0 && id < MAX_SCENES) {
                     String sanitized = name;
                     sanitized.replace("|", "");
                     sanitized.replace(",", "");
