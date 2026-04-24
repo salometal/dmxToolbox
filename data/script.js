@@ -771,7 +771,7 @@ function k(v) {
         groupStart = 0;
         groupEnd = 0;
         groupStep = 1;
-        d.innerText = isCheckMode ? "SOLO _" : "CHAN _";
+        d.innerText = isCheckMode ? "HL _" : "CHAN _";
         return;
     }
 
@@ -1022,7 +1022,7 @@ function openMacroModal(mode) {
 
     // 2. Configura l'aspetto in base alla modalità
     if (mode === 'SAVE') {
-        title.innerText = "SALVA SNAPSHOT (KEYPAD)";
+        title.innerText = "SALVA SCENA (KEYPAD)";
         saveUI.style.display = "block";
         modal.classList.add('modal-save-active'); // Per il CSS dashed
         
@@ -1152,7 +1152,7 @@ function openSnapModal(mode = 'LIST') {
         document.getElementById('snap-name-input').value = "";
         setTimeout(() => document.getElementById('snap-name-input').focus(), 150);
     } else {
-        title.innerText = "SNAP LIST 📂";
+        title.innerText = "SCENE LIST 📂";
         saveUI.style.display = "none";
         modal.classList.remove('modal-save-active');
     }
@@ -1178,7 +1178,7 @@ function renderSnapGrid() {
         btn.className = `btn-snap-slot ${isOccupied ? 'occupied' : 'empty'}`;
         
         btn.innerHTML = `
-            <span class="slot-num">SNAP ${i + 1}</span>
+            <span class="slot-num">SCENA ${i + 1}</span>
             <span class="slot-name">${isOccupied ? name : '--- LIBERO ---'}</span>
         `;
 
@@ -1195,7 +1195,7 @@ function handleSnapAction(id) {
 
         // Conferma sovrascrittura
         if (isOccupied) {
-            if (!confirm(`Lo slot SNAP ${id + 1} contiene già: "${existingName.trim()}".\nSovrascrivere con l'output attuale?`)) {
+            if (!confirm(`La Scena ${id + 1} contiene già: "${existingName.trim()}".\nSovrascrivere con l'output attuale?`)) {
                 return;
             }
         }
