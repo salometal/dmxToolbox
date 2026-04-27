@@ -14,6 +14,7 @@
 #include "../config.h"
 #include "sse_engine.h"
 #include "controller_engine.h"
+#include "../core/device_state.h"
 #include "lwip/udp.h"
 
 
@@ -300,6 +301,7 @@ server.on("/artnetin", HTTP_GET, [](AsyncWebServerRequest *request){
             doc["uptime"]   = (uint32_t)(millis() / 1000);
             doc["source"]   = sourceToString(src);
             doc["snapId"]   = activeSnapId;
+            doc["state"] = getDeviceState();
 
             // FS usage
             size_t fsTotal = LittleFS.totalBytes();
