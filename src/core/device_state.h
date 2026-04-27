@@ -4,5 +4,8 @@
 #include <Arduino.h>
 
 const char* getDeviceState();
+const char* getPreviousDeviceState();
+void saveCurrentState();
+void restoreState();
 
 #endif

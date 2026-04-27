@@ -34,7 +34,6 @@ bool keypadModeEnabled = false; // keypad enable
 
 // Flag per gestire lo stato del socket UDP senza usare localPort()
 bool udpActive = false;
-bool wasRunningBeforeKeypad = false;
 bool artnetConfirmed = false;
 bool sceneActive = false;
 bool preBlackoutRunning = false;

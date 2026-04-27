@@ -28,7 +28,6 @@ extern String wifiScanResults;
 extern TaskHandle_t netTaskHandle; // CORREZIONE 1: Necessario per la gestione task
 extern volatile int mutex_owner;
 extern bool keypadModeEnabled;
-extern bool wasRunningBeforeKeypad;
 bool blackoutActive = false;
 int8_t activeSnapId = -1;
 extern uint8_t *keypad_dmx_buffer;
@@ -450,7 +449,6 @@ server.on("/discover", HTTP_GET, [](AsyncWebServerRequest *request){
 
     request->send(200, "application/json", json);
 });
-
 server.on("/keypad_toggle", HTTP_GET, [](AsyncWebServerRequest *request){
     if (request->hasParam("state")) {
         String val = request->getParam("state")->value();
@@ -458,13 +456,10 @@ server.on("/keypad_toggle", HTTP_GET, [](AsyncWebServerRequest *request){
 
         // 1. Logica di ATTIVAZIONE (da OFF a ON)
         if (requestedState && !keypadModeEnabled) {
-            // Salva stato effettivo — considera anche udpActive per ArtNet
-            bool effectivelyRunning = settings.isRunning || udpActive;
-            wasRunningBeforeKeypad = effectivelyRunning;
-            Serial.printf("[KEYPAD ON] wasRunning salvato: %d (isRunning:%d udpActive:%d mode:%d)\n", 
-                effectivelyRunning, settings.isRunning, udpActive, settings.mode);
+            saveCurrentState(); // ← salva stato prima dell'override
+            Serial.printf("[KEYPAD ON] Stato salvato: %s\n", getPreviousDeviceState());
 
-            settings.isRunning = true; 
+            settings.isRunning = true;
             applyRelayForSource(SOURCE_KEYPAD);
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                 memset(keypad_dmx_buffer, 0, 513);
@@ -479,23 +474,9 @@ server.on("/keypad_toggle", HTTP_GET, [](AsyncWebServerRequest *request){
             if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(50)) == pdTRUE) {
                 memset(keypad_dmx_buffer, 0, 513);
                 keypadModeEnabled = false;
-                settings.isRunning = wasRunningBeforeKeypad;
-                wasRunningBeforeKeypad = false;
                 xSemaphoreGive(dmx_mutex);
             }
-
-            // Forza riapertura socket in base alla modalità
-            if (settings.isRunning && settings.mode == 1) {
-                udpActive = false; // ArtNet IN → riapre socket
-            }
-            if (settings.isRunning && settings.mode == 0) {
-                udpActive = false; // DMX IN → reset socket
-            }
-
-            applyRelayForSource(getActiveSource());
-
-            Serial.printf("[KEYPAD OFF] isRunning: %d, mode: %d, source: %s\n",
-                settings.isRunning, settings.mode, sourceToString(getActiveSource()));
+            restoreState(); // ← ripristina stato precedente
             Serial.println("[SYSTEM] Keypad Mode: DISATTIVATO");
         }
 
@@ -700,8 +681,9 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         server.on("/run_snap", HTTP_GET, [](AsyncWebServerRequest *request) {
             if (request->hasParam("id")) {
                 int id = request->getParam("id")->value().toInt();
-                applyRelayForSource(SOURCE_SNAP);
-                runSnap(id); // ← usa scene_manager con crossfade
+            saveCurrentState();
+            applyRelayForSource(SOURCE_SNAP);
+            runSnap(id);
                 request->send(200, "text/plain", "OK");
             } else {
                 request->send(400, "text/plain", "ERR_ID");
@@ -712,13 +694,8 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
             sceneActive = false;
             blackoutActive = false;
             activeSnapId = -1;
-            // preBlackoutRunning è già stato salvato al momento del blackout/snap
-            bool wasRunning = preBlackoutRunning;
-            settings.isRunning = preBlackoutRunning;
             preBlackoutRunning = false;
-
-            applyRelayForSource(getActiveSource());
-
+            restoreState();
             Serial.println("[SCENE] Override rilasciato");
             request->send(200, "text/plain", "OK");
         });
@@ -807,6 +784,7 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         });
 
             server.on("/blackout", HTTP_GET, [](AsyncWebServerRequest *request){
+                saveCurrentState();
                 if (xSemaphoreTake(dmx_mutex, pdMS_TO_TICKS(100)) == pdTRUE) {
                     memset(main_dmx_buffer, 0, 513);
                     sceneActive = true;
