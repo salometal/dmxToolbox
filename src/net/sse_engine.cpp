@@ -4,7 +4,7 @@ AsyncEventSource events("/events");
 
 void setupSSE(AsyncWebServer &srv) {
     events.onConnect([](AsyncEventSourceClient *client) {
-        Serial.println("[SSE] Client connesso");
+        Serial.printf("[SSE] Client connesso, ID: %u\n", client->id());
         // Manda un evento di benvenuto con lo stato corrente
         client->send("connected", "hello", millis(), 1000);
     });
