@@ -38,6 +38,7 @@ document.addEventListener('DOMContentLoaded', () => {
     autoPopulateWifi();
     loadPresetsFromESP();
     loadSetup();
+    initSSE();
 
 
 
@@ -1677,3 +1678,73 @@ function faderMouseMove(e) { if (faderDragging) setFaderVal(getFaderValFromEvent
 function faderMouseUp() { faderDragging = false; }
 function faderTouchStart(e) { e.preventDefault(); setFaderVal(getFaderValFromEvent(e)); }
 function faderTouchMove(e) { e.preventDefault(); setFaderVal(getFaderValFromEvent(e)); }
+
+// SSE — connessione eventi
+let sseSource = null;
+
+function initSSE() {
+    if (sseSource) return;
+    sseSource = new EventSource('/events');
+    
+    sseSource.addEventListener('provisioning_start', (e) => {
+        const data = JSON.parse(e.data);
+        startProvisioningTimer(data.duration);
+    });
+    
+    sseSource.addEventListener('provisioning_end', (e) => {
+        stopProvisioningTimer();
+    });
+
+    sseSource.addEventListener('provisioning_device', (e) => {
+        const data = JSON.parse(e.data);
+        showProvisioningNotification(data.hostname);
+    });
+
+    sseSource.onerror = () => {
+        console.warn('[SSE] Connessione persa, riconnessione automatica...');
+    };
+}
+
+// Provisioning timer
+let provTimer = null;
+let provSeconds = 0;
+
+function toggleProvisioning() {
+    const btn = document.getElementById('btn-provisioning');
+    if (btn.classList.contains('active')) {
+        fetch('/provisioning/stop').then(() => stopProvisioningTimer());
+    } else {
+        fetch('/provisioning/start').then(r => r.text()).then(res => {
+            if (res === 'OK') {
+                startProvisioningTimer(180);
+            } else {
+                alert('Impossibile avviare: dispositivo non connesso a WiFi');
+            }
+        });
+    }
+}
+
+function startProvisioningTimer(seconds) {
+    const btn = document.getElementById('btn-provisioning');
+    btn.classList.add('active');
+    provSeconds = seconds;
+    
+    provTimer = setInterval(() => {
+        provSeconds--;
+        btn.innerText = `📡 PROV ${provSeconds}s`;
+        if (provSeconds <= 0) stopProvisioningTimer();
+    }, 1000);
+}
+
+function stopProvisioningTimer() {
+    const btn = document.getElementById('btn-provisioning');
+    btn.classList.remove('active');
+    btn.innerText = '📡 PROVISIONING';
+    if (provTimer) { clearInterval(provTimer); provTimer = null; }
+}
+
+function showProvisioningNotification(hostname) {
+    // Feedback visivo — puoi migliorarlo in futuro
+    console.log('[PROV] Nuovo device configurato:', hostname);
+    alert('✅ Nuovo device configurato: ' + hostname);
+}

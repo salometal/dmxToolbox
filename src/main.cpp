@@ -12,6 +12,7 @@
 #include "net/network_engine.h"
 #include "net/keypad_engine.h"
 #include "hw/hw_manager.h"
+#include "net/sse_engine.h"
 
 
 // --- GLOBALI ---
@@ -37,6 +38,14 @@ bool wasRunningBeforeKeypad = false;
 bool artnetConfirmed = false;
 bool sceneActive = false;
 bool preBlackoutRunning = false;
+
+// Provisioning
+bool provisioningActive = false;
+uint32_t provisioningStartTime = 0;
+const uint32_t PROVISIONING_TIMEOUT_MS = 180000; // 3 minuti
+const char* PROV_SSID = "DMX-TOOLBOX-PRV";
+const char* PROV_PASS = "Dmx7oolbox!Prv9";
+// fine provisioning 
 
 
 float crossfadeProgress = 0.0f;
@@ -109,8 +118,57 @@ const char* apSSID = "DMX-toolbox";
 
 }
 
+    void startProvisioning() {
+        if (provisioningActive) return;
 
+        if (WiFi.status() != WL_CONNECTED) {
+        Serial.println("[PROV] Impossibile avviare: non connesso a WiFi");
+        return;
+    }
+        // Modalità dual STA+AP
+        WiFi.mode(WIFI_AP_STA);
+        
+        // AP nascosto (hidden=1)
+        WiFi.softAP(PROV_SSID, PROV_PASS, 1, 1);
+        
+        provisioningActive = true;
+        provisioningStartTime = millis();
+        
+        Serial.println("[PROV] Provisioning AP avviato");
+    }
 
+    void stopProvisioning() {
+        if (!provisioningActive) return;
+        
+        // Torna in solo STA
+        WiFi.softAPdisconnect(true);
+        WiFi.mode(WIFI_STA);
+        
+        provisioningActive = false;
+        Serial.println("[PROV] Provisioning AP fermato");
+    }
+
+String resolveHostname(const char* baseHostname) {
+    String candidate = String(baseHostname);
+    
+    // Prima prova il nome base
+    int found = MDNS.queryHost(candidate + ".local");
+    if (found == 0) {
+        return candidate;
+    }
+    
+    // Prova con suffisso numerico progressivo
+    for (int i = 1; i <= 20; i++) {
+        candidate = String(baseHostname) + "-" + String(i);
+        found = MDNS.queryHost(candidate + ".local");
+        if (found == 0) {
+            return candidate;
+        }
+    }
+    
+    // Fallback estremo — non dovrebbe mai arrivarci con 4-5 device
+    return String(baseHostname) + "-" + String(millis() % 9999);
+}
 
 
 void setupMDNS() {
@@ -238,6 +296,16 @@ if(LittleFS.begin(true)) {
 
     // Gestione Connessione WiFi
    initWiFiConnection();
+   // Risolvi hostname solo se connesso in STA
+    if (WiFi.status() == WL_CONNECTED) {
+        String resolvedName = resolveHostname(settings.hostname);
+        if (resolvedName != String(settings.hostname)) {
+            Serial.printf("[mDNS] Conflitto hostname — uso: %s\n", resolvedName.c_str());
+            strlcpy(settings.hostname, resolvedName.c_str(), sizeof(settings.hostname));
+            saveConfiguration(); // Salva il nuovo hostname
+        }
+    }
+
    hw_boot();
     setupMDNS();
     setupWebServer(); 
@@ -273,18 +341,20 @@ if(LittleFS.begin(true)) {
 }
 
 void loop() { 
-   hw_loop();
+    hw_loop();
     esp_task_wdt_reset();
-    
-    // Gestione Art-Net UDP dinamica basata sul flag udpActive
+
+    if (provisioningActive && millis() - provisioningStartTime > PROVISIONING_TIMEOUT_MS) {
+        stopProvisioning();
+        sendEvent("provisioning_end", "{\"active\":false,\"reason\":\"timeout\"}");
+        Serial.println("[PROV] Timeout — provisioning terminato");
+    }
+
     if (settings.isRunning && settings.mode == 1) {
-   
     } else {
         if (udpActive) {
-         
             udp.stop();
             udpActive = false;
-            
         }
     }
 

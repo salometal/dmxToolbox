@@ -12,6 +12,7 @@
 #include "update_engine.h"
 #include "../hw/hw_manager.h"
 #include "../config.h"
+#include "sse_engine.h"
 #include "controller_engine.h"
 #include "lwip/udp.h"
 
@@ -30,6 +31,12 @@ extern bool wasRunningBeforeKeypad;
 bool blackoutActive = false;
 int8_t activeSnapId = -1;
 extern uint8_t *keypad_dmx_buffer;
+
+extern bool provisioningActive;
+extern uint32_t provisioningStartTime;
+extern const uint32_t PROVISIONING_TIMEOUT_MS;
+extern void startProvisioning();
+extern void stopProvisioning();
 
 
 
@@ -883,6 +890,43 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         request->send(404, "text/plain", "easy.html mancante");
     }
     }); 
+    // Rotta avvio provisioning
+        server.on("/provisioning/start", HTTP_GET, [](AsyncWebServerRequest *request){
+            startProvisioning();
+            if (provisioningActive) {
+                sendEvent("provisioning_start", "{\"active\":true,\"duration\":180}");
+                request->send(200, "text/plain", "OK");
+            } else {
+                request->send(400, "text/plain", "ERR_NOT_CONNECTED");
+            }
+        });
+
+        // Rotta stop provisioning
+        server.on("/provisioning/stop", HTTP_GET, [](AsyncWebServerRequest *request){
+            stopProvisioning();
+            sendEvent("provisioning_end", "{\"active\":false}");
+            request->send(200, "text/plain", "OK");
+        });
+
+        // Rotta download config per Receiver
+        server.on("/provision", HTTP_GET, [](AsyncWebServerRequest *request){
+            if (!provisioningActive) {
+                request->send(403, "text/plain", "ERR_NOT_PROVISIONING");
+                return;
+            }
+            StaticJsonDocument<256> doc;
+            doc["ssid"] = settings.ssid;
+            doc["pass"] = settings.pass;
+            String out;
+            serializeJson(doc, out);
+            request->send(200, "application/json", out);
+        });
+
+    server.on("/reboot", HTTP_GET, [](AsyncWebServerRequest *request){
+        request->send(200, "text/plain", "Riavvio in corso...");
+        delay(500);
+        ESP.restart();
+    });
     server.on("/factoryreset", HTTP_GET, [](AsyncWebServerRequest *request){
         memset(settings.ssid, 0, sizeof(settings.ssid));
         memset(settings.pass, 0, sizeof(settings.pass));
@@ -895,9 +939,9 @@ server.on("/save_macro", HTTP_GET, [](AsyncWebServerRequest *request) {
         delay(1500);
         ESP.restart();
     });
-    
-setupControllerEndpoints(server);
-setupUpdateEndpoints(server); 
+    setupSSE(server);
+    setupControllerEndpoints(server);
+    setupUpdateEndpoints(server); 
     // --- 2. GESTIONE FILESYSTEM ---
     server.serveStatic("/", LittleFS, "/");
 

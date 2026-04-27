@@ -1250,3 +1250,13 @@ MODAL MACRO
 }
 
 .btn-snap-page:active { background: var(--primary); }
+
+.btn-prov {
+    background: rgba(255, 193, 7, 0.15) !important;
+    border: 1px solid var(--warning);
+    color: var(--warning);
+}
+.btn-prov.active {
+    background: rgba(255, 193, 7, 0.4) !important;
+    animation: pulse-search 1.5s infinite ease-in-out;
+}
