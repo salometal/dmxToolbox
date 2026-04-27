@@ -170,24 +170,19 @@ String resolveHostname(const char* baseHostname) {
 }
 
 
-void setupMDNS() {
-
-    if (strlen(settings.hostname) < 3) {
-        strcpy(settings.hostname, "dmxtoolbox"); 
+void setupMDNS(const char* hostname) {
+    if (strlen(hostname) < 3) {
+        hostname = "dmxtoolbox";
         Serial.println("[mDNS] Hostname non valido, uso default: dmxtoolbox");
     }
 
-    // Usiamo l'hostname salvato nelle settings
-   if (!MDNS.begin(settings.hostname)) {
+    if (!MDNS.begin(hostname)) {
         Serial.println("Errore configurazione mDNS!");
     } else {
-        Serial.printf("mDNS avviato: http://%s.local\n", settings.hostname);
-        
-        // OPZIONALE: Annuncia che questo è un servizio HTTP e Art-Net
+        Serial.printf("mDNS avviato: http://%s.local\n", hostname);
         MDNS.addService("http", "tcp", 80);
         MDNS.addService("artnet", "udp", 6454);
         MDNS.addService("dmxtoolbox", "tcp", 80);
-        // TXT record per family discovery
         MDNS.addServiceTxt("dmxtoolbox", "tcp", "type", "pro");
         MDNS.addServiceTxt("dmxtoolbox", "tcp", "version", "2.5");
         MDNS.addServiceTxt("dmxtoolbox", "tcp", "caps", "dmxin,artnet,keypad,snap");
@@ -252,7 +247,7 @@ if(LittleFS.begin(true)) {
         saveConfiguration(); // Crea il file config.bin iniziale
     }
     loadScenes();
-    
+
     if (!settings.autoSave) {
     settings.isRunning = false;
     Serial.println("[SYSTEM] AutoSave disabilitato — boot in standby");
@@ -300,19 +295,19 @@ if(LittleFS.begin(true)) {
 
     // Gestione Connessione WiFi
    initWiFiConnection();
-   // Risolvi hostname solo se connesso in STA
+    // Risolvi hostname solo se connesso in STA
     if (WiFi.status() == WL_CONNECTED) {
         String resolvedName = resolveHostname(settings.hostname);
         if (resolvedName != String(settings.hostname)) {
-            Serial.printf("[mDNS] Conflitto hostname — uso: %s\n", resolvedName.c_str());
-            strlcpy(settings.hostname, resolvedName.c_str(), sizeof(settings.hostname));
-            saveConfiguration(); // Salva il nuovo hostname
+            Serial.printf("[mDNS] Conflitto hostname — uso temporaneamente: %s\n", resolvedName.c_str());
         }
+        hw_boot();
+        setupMDNS(resolvedName.c_str());
+    } else {
+        hw_boot();
+        setupMDNS(settings.hostname);
     }
-
-   hw_boot();
-    setupMDNS();
-    setupWebServer(); 
+    setupWebServer();
 
 
     // --- AVVIO TASK (UNA VOLTA SOLA) ---
