@@ -1549,6 +1549,14 @@ function saveSetup() {
         .catch(err => console.error("Errore saveSetup:", err));
 }
 
+function rebootNode() {
+    if (confirm('Vuoi riavviare il dispositivo?')) {
+        fetch('/reboot').then(() => {
+            setTimeout(() => location.reload(), 5000);
+        });
+    }
+}
+
 function loadSetup() {
     fetch('/get_setup')
         .then(r => r.text())
@@ -1559,7 +1567,6 @@ function loadSetup() {
                 document.getElementById('setup-fade-macro').value   = p[1];
                 document.getElementById('setup-fade-keypad').value  = p[2];
                 document.getElementById('setup-solo-level').value   = p[3];
-                document.getElementById('setup-blackout-auto').value = p[4];
                 document.getElementById('setup-autosave').checked   = p[5] === "1";
                 document.getElementById('setup-fade-curve').value = p[6];
                 document.getElementById('setup-led').value = p[7];
