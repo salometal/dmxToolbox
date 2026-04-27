@@ -143,6 +143,19 @@ void saveConfiguration() {
 
 // --- CONFIGURAZIONE WEB SERVER (Chiamata una sola volta) ---
 void setupWebServer() {
+    // CORS — necessario per PWA su dominio esterno
+        DefaultHeaders::Instance().addHeader("Access-Control-Allow-Origin", "*");
+        DefaultHeaders::Instance().addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+        DefaultHeaders::Instance().addHeader("Access-Control-Allow-Headers", "Content-Type");
+
+        server.onNotFound([](AsyncWebServerRequest *request) {
+            if (request->method() == HTTP_OPTIONS) {
+                request->send(200);
+            } else {
+                request->send(404, "text/plain", "Not found");
+            }
+        });
+
     // --- 1. ROTTE DINAMICHE PRIORITARIE ---
     // Gestione Root (Index)
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
