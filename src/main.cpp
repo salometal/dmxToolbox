@@ -252,6 +252,11 @@ if(LittleFS.begin(true)) {
         saveConfiguration(); // Crea il file config.bin iniziale
     }
     loadScenes();
+    
+    if (!settings.autoSave) {
+    settings.isRunning = false;
+    Serial.println("[SYSTEM] AutoSave disabilitato — boot in standby");
+}
 
 }
 
